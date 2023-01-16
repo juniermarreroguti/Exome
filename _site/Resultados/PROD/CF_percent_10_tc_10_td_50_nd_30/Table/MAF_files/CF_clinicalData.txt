@@ -1,0 +1,13 @@
+Tumor_Sample_Barcode
+PC_PC_TNP116-tumor
+PC_PC_TNP117-tumor
+PC_PC_TNP119-tumor
+PC_PC_TNP120-tumor
+PC_PC_TNP121-tumor
+PC_PC_TNP122-tumor
+PC_PC_TNP123-tumor
+PC_PC_TNP129-tumor
+PC_PC_TNP131-tumor
+PC_PC_TNP140-tumor
+PC_PC_TNP141-tumor
+PC_PC_TNP142-tumor

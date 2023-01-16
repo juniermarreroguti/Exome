@@ -1,0 +1,4293 @@
+---
+title: "Sequenciamento completo de exomas de PitNETs"
+author: ""
+date: ""
+output: 
+  html_document:
+    theme: spacelab
+    highlight: tango
+    self_contained: true
+    orientation: column
+    vertical_layout: scroll
+runtime: shiny
+---
+
+
+
+```{r echo = FALSE, warning= FALSE, comment= FALSE,message =FALSE}
+
+knitr::opts_knit$set(root.dir = "_site")
+knitr::opts_chunk$set(echo = FALSE)
+
+library(shiny)
+library(readxl)
+library(DT)
+library(tidyr)
+library(collapsibleTree)
+library(plotly)
+library(ggplot2)
+
+
+# https://github.com/leg-ufpr/prr/
+
+```
+
+
+## Introdução {.emphasized style="color:black" .tabset}
+
+-----------------------------------------------------
+
+### WES
+
+<div class=text-justify>
+
+&nbsp;&nbsp;&nbsp;
+O Exoma é o conjunto de éxons (parte codificante do DNA) presentes no genoma de grande parte dos seres vivos. Pelo tanto, o sequenciamento completo do exoma (do inglês _Whole Exome Sequecing ou WES_) busca apenas sequenciar as partes codificantes do DNA. 
+
+
+&nbsp;&nbsp;&nbsp;
+O genoma humano está formado por 180.000 éxons e se conhece que neles se concentram mais do 85% doenças genéticas. As variantes genéticas detectadas no exons quando comparadas entre células somáticas e germinativas tem o potencial de caracterizar doenças. Por exemplo, ao comparar as alterações somáticas, que ocorrem em células responsáveis pela formação de tecidos e órgãos e, normalmente, não transmitidas de geração a geração, vinculadas a tumores, com as variantes germinativas, originadas nos gametos e por tanto com a capacidade de ser transmitidas entre gerações, e que indicam o estado normal de uma célula, podem definir as alterações associadas com a aparição do tumor.
+
+
+&nbsp;&nbsp;&nbsp;
+Seguindo com essa linha, neste trabalho comparamos as variantes somáticas (amostras do tecido tumoral) e germinativas (amostras de sangue) de pacientes pediatricos com tumores pituitários (PitNETs). Os PitNETs são uma das neoplasias benignas mais comuns do sistema nervoso central, representando até 15% de todos os tumores cerebrais primários.
+
+&nbsp;&nbsp;&nbsp;
+Os PitNETs são classificados clinicamente de acordo com sua célula de origem e perfil de secreção hormonal, com hipersecreção de hormônio do crescimento (GH), prolactina (PRL), hormônio adrenocorticotrófico (ACTH), hormônio estimulante da tireoide (TSH), hormônios gonadotróficos — hormônio luteinizante (LH) e hormônio folículo-estimulante (FSH) - ou tumores hipofisários clinicamente não funcionais (NFPT).
+
+&nbsp;&nbsp;&nbsp;
+Neste trabalho estudamos a comparação do exoma somático e germinativo das PitNETs secretores: **GH**, **ACTH**, **CF**? e não secretores (**NS**).
+
+</div>
+
+
+
+### Dados de partida?
+
+<div class=text-justify>
+
+&nbsp;&nbsp;&nbsp;
+Trabalhamos com:
+
+<input type="checkbox" checked> Dados prodecentes do _Cancer Genomics Research Laboratory (CGRL)_ que disponibilizou as chamadas de variantes (_LoFreq, MuSE, MuTect2 (GATK4), Strelka and VarDict_) do par Tumor/Normal dos PitNETs.
+</input>
+
+
+<input type="checkbox" checked> As chamadas de variantes de dois protocolos experimentais:
+
+**1. PROD** (Pipeline de produção): Remoção de _reads_ duplicadas com base na qualidade ( _singletons_ são mantidos).
+
+**2. UMI** (Pipeline de Índice Molecular Exclusivo): Manutenção apenas de _reads_  consenso dentro de duplicados ( _singletons_ são descartados).
+
+</input>
+
+
+<input type="checkbox" checked> Arquivos [MAF](https://docs.gdc.cancer.gov/Data/File_Formats/MAF_Format/#protected-maf-file-structure), obtidos pelo Laboratório Translacional de Oncologia-FMRP (**LTO-FMRP**) apartir dos arquivos VCF produzidas por **CGRL**.
+
+</input>
+
+
+</div>
+
+
+### Qué foi feito?
+
+<div class=text-justify>
+
+&nbsp;&nbsp;&nbsp;
+Com os arquivos MAF ( _Mutation Annotation Format_):
+
+<input type="checkbox" checked> Resumimos as anotações de variantes de todos os pares de amostras e separamos por categoria (**GH, ACTH, NS, CF**).
+</input>
+
+<input type="checkbox" checked> Exibimos o número de variantes e os tipos de variantes em cada amostra.
+</input>
+
+<input type="checkbox" checked> Utilizamos gráficos de cascata para mostrar o genes alterados e o tipo de alteração em cada amostra.
+</input>
+
+<input type="checkbox" checked> Classificamos as variações das amostras em transições e transversões.
+</input>
+
+<input type="checkbox" checked> Comparamos a carga de mutação das amostras contra os [33 coortes](https://gdc.cancer.gov/about-data/publications/mc3-2017) disponiveis no TCGA usando a visualização gráfica proposta por [Alexandrov et al](https://www.nature.com/articles/nature12477)
+</input>
+
+<input type="checkbox" checked> Detectamos o conjunto de genes mutuamente exclusivos ou co-ocorrentes utilizando o teste Exato de Fisher par a par.
+</input>
+
+<input type="checkbox" checked> Selecionamos genes que se alteram em percentos das amostras. 
+</input>
+
+<input type="checkbox" checked> Informamos os SNP e as novas variantes.
+</input>
+
+
+<input type="checkbox" checked> Visualizamos a frequẽncia alélica das variantes mais detetadas.
+</input>
+
+<input type="checkbox" checked> Identificamos as doenças associadas aos genes alterados.
+</input>
+
+<input type="checkbox" checked> Associamos as variantes gênicas (SNV) detectadas nos genes com doenças.
+</input>
+
+<input type="checkbox" checked> Visualizamos mediante diagrama de red e de calor as principais associações.
+</input>
+
+<input type="checkbox" checked> Pesquisamos os principais evidencias de associação dos genes e as SNV as doenças.
+</input>
+
+<input type="checkbox" checked> Resumimos os resultados num gráfico.
+</input>
+
+
+<input type="checkbox" checked> Salvamos tabelas explicativas com o set de resultados.
+</input>
+
+<input type="checkbox" checked> Identificamos nos tumores GH, ACTH, NS e CF os genes que estão na categoria de frequentemente alterados ([FLAGS](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4267152/)) .
+</input>
+
+
+<input type="checkbox" checked> Trabalhamos com os pacotes [MAFtools](https://www.bioconductor.org/packages/devel/bioc/vignettes/maftools/inst/doc/maftools.html) e [DisGeNET](https://www.disgenet.org/static/disgenet2r/disgenet2r.html). Além das bases de dados: CTD, ClinGen, CGI, UniProt, Orphanet, PsyGeNET, Genomics England PanelApp. Destacar que a implementação das análises e apresentação dos resultados se realizou no ambiente estatístico [R v.3.6.3](https://www.R-project.org/).
+</input>
+
+
+</div>
+
+
+### Seleção de Variáveis (Setup)
+
+<div class=text-justify>
+
+&nbsp;&nbsp;&nbsp;
+A seleção de variávies é um passo crítico em qualquer análises e aqui não é diferente. Pelo que a seguer, descrevemos as particulairdades
+
+|           |                                             |
+|:-----------:|:-------------------------------------------|
+|Type of Data |Até agora disponivies: PROD/UMI. Pode consultar o .pdf anexo para conhecer mais sob estos dados. As analises de AbraO (**A**rquivo **Bra**sileiro **O**nline de Mutações) não estão acessíveis porque no contamos com arquivos MAF.|
+|Percent with altered gene|pensamos que si una variante génica aparece numa única amostra teria um significado diferente se a variante se apresenta em mais amostras. De ai, que explorar diferentes porcentagem da presença da alteração no conjunto de amostras é um filtro interessante. Nos focamos na porcentagem superior ao selecionado.|
+|t_alt_count|Read depth supporting the variant allele in tumor BAM. A definição de 10 é com base no **LTO-FMRP** ainda que é possivel testar outros valores.|
+|t_depth |Read depth across this locus in tumor BAM. A definição de 50 é com base no **LTO-FMRP** ainda que é possivel testar outros valores.|
+|n_depth|Read depth across this locus in normal BAM.A definição de 30 é com base no **LTO-FMRP** ainda que é possivel testar outros valores.|
+
+</div>
+
+
+
+### MAF/DisGeNET
+
+<div class=text-justify>
+&nbsp;&nbsp;&nbsp;
+Apesar de ter disponibilizado informação sobre os pacotes utilizados, decidimos incluir informação extra para consulta:
+
+|**MAF File**|**DisGeNET**|
+|:------------|:------------|
+|[Estrutura](https://docs.gdc.cancer.gov/Data/File_Formats/MAF_Format/#protected-maf-file-structure)|[DataBase/Metricas](https://www.disgenet.org/dbinfo)|
+|[Pipeline-MAF](https://www.bioconductor.org/packages/devel/bioc/vignettes/maftools/inst/doc/maftools.html)|[Pipeline-DisGeNET](https://www.disgenet.org/static/disgenet2r/disgenet2r.html)|
+
+
+</div>
+
+### Contato
+
+<div class=text-justify>
+
+<center>
+
+**LabPAD**
+
+**Lab**oratório de **P**rocessamento e **A**nálises de **D**ados
+
+</center>
+
+|    |       |
+|:---|:-----|
+|**Responsável:**| Junier Marrero Gutiérrez|
+|**Contato:**|  jmarreroguti@alumni.usp.br|
+
+
+</div>
+
+
+
+
+## Setup {.emphasized style="color:black"}
+
+------------------------------------------------
+
+```{r Seleção de Variavies-UI}
+
+flowLayout(
+
+selectInput("protocol", 
+             label = "Types of Data",
+             choices = c("PROD","UMI",
+                         "ABraO-PROD",
+                         "ABraO-UMI"), 
+    selected = 1),
+
+selectInput("npercent", 
+             label = "Percent with altered gene",
+             choices = c("1","5","10"), 
+             selected = "10",
+             multiple = FALSE))
+
+flowLayout(
+  
+selectInput("tc", 
+            label = "t_alt_count",
+            choices = c("10",
+                        "20",
+                        "30"), 
+            selected = "10",
+            multiple= FALSE),
+
+selectInput("td", 
+            label = "t_depth",
+            choices = c("40",
+                        "50",
+                        "60"), 
+            selected = "50",
+            multiple=FALSE),
+
+selectInput("nd", 
+            label = "n_depth",
+            choices = c("20",
+                        "30",
+                        "40"), 
+            selected = "30",
+            multiple=FALSE)
+            
+)
+
+
+```
+
+
+## Resultados{.emphasized style="color:black" .tabset .tabset-pills}
+
+-----------------------------------------------------------
+
+
+### PitNETs {.tabset}
+
+```{r Carregando aos Dados}
+
+address.pitnets <- reactive({
+  
+  paste0("_site/Resultados/",input$protocol,
+         "/PitNETs",
+         "_percent_",input$npercent,
+         "_tc_",input$tc,
+         "_td_",input$td,
+         "_nd_",input$nd)
+  
+})
+
+address.rda.pitnets <- reactive({
+  
+  paste0("_site/Resultados/",input$protocol,
+         "/RData/PitNETs/PitNETs_",
+         "percent_",input$npercent,
+         "_tc_",input$tc,
+         "_td_",input$td,
+         "_nd_",input$nd, ".RData")
+  
+})
+
+
+```
+
+
+<div class=text-center>
+
+**Resumo dos Resultados PitNETs**
+
+</div>
+
+
+```{r Summary-Results-MAF Server}
+
+# Tabela com Resumo das alteraçãoes por Amostra
+
+output$results.summary <- DT::renderDataTable({
+  
+aux2 <- read.table(paste0(address.pitnets(),
+                    "/Table/MAF_files/PitNETs_summary.txt"),
+             header = TRUE)
+
+aux2 <- aux2[,c(1,2)]
+
+
+DT::datatable(aux2,
+              rownames = FALSE,
+              extensions = "FixedColumns",
+                options = list(
+                  columnDefs = list(list(className = 'dt-center',
+                                         targets = "_all")),
+                  paging = FALSE, 
+                  searching = FALSE, 
+                  info = FALSE,
+                  sort = TRUE, 
+                  scrollX = TRUE)
+              )
+  
+})
+
+
+
+```
+
+```{r Summary-Results-MAF UI}
+
+dataTableOutput("results.summary")
+
+
+```
+
+
+#### MAF tools 
+
+```{r MAF-tools UI}
+
+fluidPage(
+
+  sidebarLayout(
+
+        sidebarPanel(
+
+          selectInput("mafview",
+                      label = "Plot",
+             choices = c("MAF_Summary",
+                         "Onco_plot",
+                         "TiTv_plot",
+                         "Somatic_Interaction"),
+                      selected = 1),
+          wellPanel(
+            textOutput("maf.summary.text"),
+            textOutput("onco.plot.text"),
+            textOutput("titv.text"),
+            textOutput("somatic.text")
+            
+          )
+
+        ),
+
+        mainPanel(
+
+          plotOutput("graph"),
+          
+          
+        )
+
+ )
+
+)
+
+
+
+```
+
+```{r MAF-tools Server}
+
+output$graph <- renderImage({
+
+    list(src = paste0(address.pitnets(),"/Picture/MAF_files/",input$mafview,".png"))
+
+})
+
+
+output$maf.summary.text <- renderText({
+
+  if (input$mafview == "MAF_Summary"){
+
+        "Resumo dos arquivos MAF, exibindo o número e tipos de variantes, assim como os genes com mais alterações."
+
+}
+
+})
+
+
+output$onco.plot.text <- renderText({
+
+  if (input$mafview == "Onco_plot"){
+
+  "Top de 20 genes (filas) alterados nas amostras (colunas). Destacamos a classificação da variante e a porcentagem de amostras alteradas. **Aclaração**: Varaintes **MultiHits** são os genes que sofreram mutação mais de uma vez na mesma amostra."
+}
+
+})
+
+
+output$titv.text <- renderText({
+
+  if (input$mafview == "TiTv_plot"){
+
+    "Distribuição geral das Transições e Transversões nas amostras."
+
+  }
+
+})
+
+output$somatic.text <- renderText({
+
+  if (input$mafview == "Somatic_Interaction"){
+
+    "Realiza la prueba Exacta de Fisher por pares para detectar eventos mutuamente excluyentes o simultáneos no top dos 20 genes."
+
+  }
+
+})
+
+
+
+```
+
+
+#### MAF Tables
+
+```{r Tables-MAF Server}
+
+# Tabela com Resumo das alteraçãoes por Amostra
+
+output$maf.pitnets <- DT::renderDataTable({
+  
+aux2 <- read.table(paste0(address.pitnets(),
+                    "/Table/MAF_files/PitNETs_sampleSummary.txt"),
+             header = TRUE)
+
+names(aux2)[1] <- "Samples"
+aux2$Samples <- gsub("PC_PC_","",aux2$Samples)
+
+aux2 <- aux2[,c(which(names(aux2) == "Samples"),
+              which(names(aux2) == "total"),
+             2:(ncol(aux2)-1))]
+
+names(aux2)[2] <- "Total"
+
+aux2 <- separate(data = aux2,
+                 col = Samples,
+                 into = c("Samples","Class"),
+                 sep = "-")
+
+DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "VARIAÇÕES POR AMOSTRAS",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 3))
+              )
+  
+})
+
+
+# Tabela com o resumo de alterações por Genes
+
+output$maf.pitnets.class <- DT::renderDataTable({
+  
+aux3 <- read.table(paste0(address.pitnets(),"/Table/MAF_files/PitNETs_geneSummary.txt"),
+                   header = TRUE)
+
+
+names(aux3)[1] <- "Symbol"
+
+aux3 <- aux3[,c(which(names(aux3) == "Symbol"),
+                which(names(aux3) == "total"),
+                which(names(aux3) == "MutatedSamples"),
+                which(names(aux3) == "AlteredSamples"),
+                2:(ncol(aux3)-3))]
+
+DT::datatable(aux3,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "VARIAÇÕES POR GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 4))
+              )
+  
+
+  
+})
+
+# Tabela com um resumo das informaçãoes dos arquivos MAF 
+
+output$maf.geral <- DT::renderDataTable({
+  
+aux1 <- read_xlsx(paste0(address.pitnets(),"/Table/MAF_files/MAF_filtered.xlsx"))
+
+aux1 <- aux1[,c(which(names(aux1)=="Tumor_Sample_Barcode"),
+                which(names(aux1)=="Matched_Norm_Sample_Barcode"),
+                which(names(aux1)=="Hugo_Symbol"),
+                which(names(aux1)=="Variant_Classification"),
+                which(names(aux1)=="Variant_Type"),
+                which(names(aux1)=="dbSNP_RS")
+                )]
+
+names(aux1) <- c("Tumor","Germline","Symbol",
+                 "Classification","Type","dbSNP_RS")
+
+aux1$Tumor <- gsub("PC_PC_","",aux1$Tumor)
+aux1$Germline <- gsub("PC_PC_","",aux1$Germline)
+
+DT::datatable(aux1,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "ANOTAÇÕES DAS VARIAÇÕES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+  
+})
+
+
+```
+
+```{r Tables-MAF UI}
+
+dataTableOutput("maf.pitnets")
+
+dataTableOutput("maf.pitnets.class")
+
+dataTableOutput('maf.geral')
+
+
+```
+
+
+#### MAF Integration
+
+```{r MAF Integration UI}
+
+fluidPage(
+
+ navbarPage(title="",
+            tabPanel("Gene Characterization",
+                     wellPanel(
+                     textOutput("altered.text")),
+                     collapsibleTreeOutput("altered")),
+            tabPanel("TCGA Integration",
+                     wellPanel(
+                     textOutput("tcga.text")),
+                     plotOutput("tcga")),
+            tabPanel("Allele Frequency",
+                     wellPanel(
+                     textOutput("allele.text")),
+                     plotlyOutput("allele"),
+                     collapsibleTreeOutput("allele.sample")
+                     )
+            
+            )
+
+)
+
+
+
+
+```
+
+```{r MAF Integration Server}
+
+# Gene Caracterização
+
+output$altered <- renderCollapsibleTree({
+
+altered.genes <- read_xlsx(paste0(address.pitnets(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+plot.altered <- collapsibleTree(
+                altered.genes,
+                hierarchy = c("SYMBOL", "dbSNP_RS", "IMPACT"),
+                width = 800,
+                fill = "darkblue",
+                root= "Genes Characterização",
+                zoomable = FALSE
+                )
+
+plot.altered
+
+})
+
+
+output$altered.text <- renderText({
+
+ "Representamos os genes com alteração na porcentagem de amostras definidas pelo usuário. Identificamos as variações nos genes segundo dbSNP_RS do NCBI. Finalmente, identificamos o impacto na proteína: HIGH (H): Supõe-se que a variante tenha alto impacto (disruptivo), provavelmente causando truncamento da proteína, perda de função ou desencadeando decaimento. MODERATE (M): Uma variante não disruptiva que pode alterar a eficácia. LOW (L): presume-se que a variante seja inofensiva ao comportamento da proteína"
+
+})
+
+
+
+# TCGA
+
+output$tcga <- renderImage({
+
+    list(src = paste0(address.pitnets(),"/Picture/MAF_files/TCGA_compare.png"))
+
+})
+
+output$tcga.text <- renderText({
+
+ "Compara a carga de mutação da categoria contra os 33 coortes disponivies no TCGA. O eixo vertical (escala logarítmica) mostra o número de mutações por megabase, enquanto os diferentes tipos de câncer são ordenados no eixo horizontal com base em seus números médios de mutações somáticas, destacando no eixo superior o numero de amostras no estudo."
+  
+})
+
+
+# Allele frequency
+
+output$allele <- renderPlotly({
+
+  altered.genes <- read_xlsx(paste0(address.pitnets(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+lineal.aux1 <- altered.genes[,c(1,2,3,14:ncol(altered.genes))]
+
+lineal.aux2 <- gather(data = lineal.aux1,
+                      key = "Allele",
+                      value = "Freq",
+                      4:ncol(lineal.aux1))
+names(lineal.aux2)[1] <- "Sample" 
+
+p <- ggplot(lineal.aux2,
+            aes(SYMBOL,
+                Freq, 
+                color = Allele,
+                fill = dbSNP_RS,
+                group = Sample)) + 
+  labs(x="",
+       title = "Allele frequency") + 
+  geom_point() +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, 
+                                   vjust = 0.5, 
+                                   hjust=1))  
+
+
+p1 <- ggplotly(p,
+         tooltip=c("SYMBOL",
+                   "dbSNP_RS",
+                   "Allele",
+                   "Freq")) %>%
+  layout(
+    legend = list(
+      orientation = 'h', x = 0.3, y = 1
+    )
+)
+
+ p1 
+  
+})
+
+
+
+output$allele.sample <- renderCollapsibleTree({
+
+altered.genes <- read_xlsx(paste0(address.pitnets(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+lineal.aux1 <- altered.genes[,c(1,2,3,14:ncol(altered.genes))]
+
+lineal.aux2 <- gather(data = lineal.aux1,
+                      key = "Allele",
+                      value = "Freq",
+                      4:ncol(lineal.aux1))
+names(lineal.aux2)[1] <- "Sample" 
+
+
+lineal.aux3 <- lineal.aux2[-which(is.na(lineal.aux2$Freq)),]
+
+
+allele.sample <- collapsibleTree(
+              lineal.aux3,
+              hierarchy = c("SYMBOL","dbSNP_RS","Sample"),
+              width = 800,
+              fill = "darkblue",
+              root= paste0("Allele Frequency"),
+              zoomable = FALSE
+              )
+
+allele.sample
+
+})
+
+
+
+
+
+
+
+output$allele.text <- renderText({
+
+ "Frequência de variante existente em 1000 genomas (AF),e na população africana (AFR_AF), Americana (AMR),  Asiática (ASN), Leste Asiático (EAS), Europeia (EUR), Sul da Ásia (SAS) e Afro-Americana (AA),Européia-Americana (EA) do NHLBI-ESP (combinadas de 1000 genomas). 
+  
+  **No final da pagina** as amostras que apresentam as variantes."
+
+})
+
+
+
+```
+
+
+#### DisGeNET 
+
+```{r DisGeNET UI}
+
+fluidPage(
+
+  sidebarLayout(
+
+        sidebarPanel(
+
+          selectInput("disgenet",
+                      label = "Plot",
+             choices = c("Network",
+                         "Heatmap_Gene",
+                         "Heatmap_Variant"),
+                      selected = 1),
+          wellPanel(
+            
+            textOutput("network.text"),
+            textOutput("gene.text"),
+            textOutput("variant.text")
+            
+          )
+
+        ),
+
+        mainPanel(
+
+          plotOutput("plot.disgenet"),
+          
+          
+        )
+
+ )
+
+)
+
+
+
+```
+
+```{r DisGeNET Server}
+
+output$plot.disgenet <- renderImage({
+
+    list(src = paste0(address.pitnets(),"/Picture/DisGeNET/",input$disgenet,".png"))
+
+})
+
+output$network.text <- renderText({
+
+  if (input$disgenet == "Network"){
+
+    "Red (network) de associação entre as doenças (azul), com variantes gênicas (laranja) e o gene (rosa) alterado na porcentagem definidas pelo usuário. A largura das arestas é proporcional à pontuação da associação e o tamanho do nó proporcional à fração de doenças na classe de doenças. ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+output$gene.text <- renderText({
+
+  if (input$disgenet == "Heatmap_Gene"){
+
+    "Lista de doenças associadas aos genes com as variações. A escala de cores é proporcional à pontuação do GDA (associações de doenças genéticas). ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+
+output$variant.text <- renderText({
+
+  if (input$disgenet == "Heatmap_Variant"){
+
+    "Lista de doenças associadas as variações. A escala de cores é proporcional à porcentagem de dbSNP para cada doença em cada classe. ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+
+```
+
+
+#### DisGeNET Tables
+
+```{r DisGeNET-Tables Server}
+
+# Tabela as evidenças dos SNP na literatura
+
+output$evidence.snp <- DT::renderDataTable({
+  
+
+test <- paste0(address.pitnets(),
+                  "/Table/DisGeNET/VariantEvidence.xlsx")
+  
+
+if (file.exists(test)) {
+aux2 <- read_xlsx(paste0(address.pitnets(),
+                  "/Table/DisGeNET/VariantEvidence.xlsx"))
+
+aux2 <- DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS VARIANTES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 2))
+              )
+aux2  
+
+}else{
+
+aux2 <- matrix(c("NULL","NULL","NULL", "NULL"), nrow=1, ncol=4)
+aux2 <- data.frame (aux2) 
+names(aux2) <- c("dbSNP","Gene","pmid","year")
+
+aux2 <- DT::datatable(aux2,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS VARIANTES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+
+aux2
+
+
+}
+
+
+})
+
+# Tabela as evidenças por os Genes
+# Se mque necessariamente a doença esteja vinculada
+# a SNP
+
+output$evidence.gene <- DT::renderDataTable({
+
+test <- paste0(address.pitnets(),
+                  "/Table/DisGeNET/GeneEvidence.xlsx")
+  
+
+if (file.exists(test)) {
+aux2 <- read_xlsx(paste0(address.pitnets(),
+                  "/Table/DisGeNET/GeneEvidence.xlsx"))
+
+aux2 <- DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS A GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 2))
+              )
+aux2  
+
+}else{
+
+aux2 <- matrix(c("NULL","NULL","NULL", "NULL"), nrow=1, ncol=4)
+aux2 <- data.frame (aux2) 
+names(aux2) <- c("dbSNP","Gene","pmid","year")
+
+aux2 <- DT::datatable(aux2,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS VARIANTES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+
+aux2
+
+
+}
+
+
+})
+
+
+```
+
+```{r DisGeNET-Tables UI}
+
+dataTableOutput("evidence.snp")
+
+dataTableOutput("evidence.gene")
+
+
+
+```
+
+
+#### DisGeNET Integration
+
+```{r DisGeNET Integration UI}
+
+fluidPage(
+
+         wellPanel(
+         textOutput("summary.text")),
+         collapsibleTreeOutput("summary")
+    
+)
+
+
+
+
+```
+
+```{r DisGeNET Integration Server}
+
+# Gene Caracterização
+
+output$summary <- renderCollapsibleTree({
+
+  
+summary.total <- read_xlsx(paste0(address.pitnets(),     "/Table/DisGeNET/Summary_collapsible.xlsx"))
+
+summary.total <- data.frame(summary.total)
+
+summary.total <- collapsibleTree(summary.total,
+                 root = "Sumary",
+                  attribute = "Tumor_Sample_Barcode",
+                  hierarchy = c("snp",
+                                "gene_symbol",
+                                "Variant_Classification",
+                                "VARIANT_CLASS",
+                                "HGVSp",
+                                "Tumor_Sample_Barcode",
+                                "disease_name"),
+                  width = 800,
+                  height = 200,
+                  zoomable = FALSE,
+                  fill = "orange",
+                  fontSize = 10)
+
+summary.total
+
+})
+
+
+output$summary.text <- renderText({
+
+    "Variações presentes na porcentagem de amostras definias pelo usuário. Visualizando os genes, o tipo de alteração, as amostras que a possuim e as doenças associadas com a variação."
+
+})
+
+
+```
+
+
+
+### GH {.tabset .tabset-fade}
+
+
+```{r Carregando aos Dados-GH}
+
+address.gh <- reactive({
+  
+  paste0("_site/Resultados/",input$protocol,
+         "/GH",
+         "_percent_",input$npercent,
+         "_tc_",input$tc,
+         "_td_",input$td,
+         "_nd_",input$nd)
+  
+})
+
+address.rda.gh <- reactive({
+  
+  paste0("_site/Resultados/",input$protocol,
+         "/RData/GH/GH_",
+         "percent_",input$npercent,
+         "_tc_",input$tc,
+         "_td_",input$td,
+         "_nd_",input$nd, ".RData")
+  
+})
+
+
+```
+
+
+<div class=text-center>
+
+**Resumo dos Resultados GH**
+
+</div>
+
+
+```{r Summary-Results-MAF-GH Server}
+
+# Tabela com Resumo das alteraçãoes por Amostra
+
+output$results.summary.gh <- DT::renderDataTable({
+  
+aux2 <- read.table(paste0(address.gh(),
+                    "/Table/MAF_files/GH_summary.txt"),
+             header = TRUE)
+
+aux2 <- aux2[,c(1,2)]
+
+
+DT::datatable(aux2,
+              rownames = FALSE,
+              extensions = "FixedColumns",
+                options = list(
+                  columnDefs = list(list(className = 'dt-center',
+                                         targets = "_all")),
+                  paging = FALSE, 
+                  searching = FALSE, 
+                  info = FALSE,
+                  sort = TRUE, 
+                  scrollX = TRUE)
+              )
+  
+})
+
+
+
+```
+
+```{r Summary-Results-MAF-GH UI}
+
+dataTableOutput("results.summary.gh")
+
+
+```
+
+
+#### MAF tools 
+
+```{r MAF-tools-GH UI}
+
+fluidPage(
+
+  sidebarLayout(
+
+        sidebarPanel(
+
+          selectInput("mafview.gh",
+                      label = "Plot",
+             choices = c("MAF_Summary",
+                         "Onco_plot",
+                         "TiTv_plot",
+                         "Somatic_Interaction"),
+                      selected = 1),
+          wellPanel(
+            textOutput("maf.summary.gh.text"),
+            textOutput("onco.plot.gh.text"),
+            textOutput("titv.gh.text"),
+            textOutput("somatic.gh.text")
+            
+          )
+
+        ),
+
+        mainPanel(
+
+          plotOutput("graph.gh"),
+          
+          
+        )
+
+ )
+
+)
+
+
+
+```
+
+```{r MAF-tools-GH Server}
+
+output$graph.gh <- renderImage({
+
+    list(src = paste0(address.gh(),"/Picture/MAF_files/",input$mafview.gh,".png"))
+
+})
+
+
+output$maf.summary.gh.text <- renderText({
+
+  if (input$mafview.gh == "MAF_Summary"){
+
+       "Resumo dos arquivos MAF, exibindo o número e tipos de variantes, assim como os genes com mais alterações."
+
+}
+
+})
+
+
+output$onco.plot.gh.text <- renderText({
+
+  if (input$mafview.gh == "Onco_plot"){
+
+ "Top de 20 genes (filas) alterados nas amostras (colunas). Destacamos a classificação da variante e a porcentagem de amostras alteradas. **Aclaração**: Varaintes **MultiHits** são os genes que sofreram mutação mais de uma vez na mesma amostra."
+}
+
+})
+
+
+output$titv.gh.text <- renderText({
+
+  if (input$mafview.gh == "TiTv_plot"){
+
+    "Distribuição geral das Transições e Transversões nas amostras."
+
+  }
+
+})
+
+output$somatic.gh.text <- renderText({
+
+  if (input$mafview.gh == "Somatic_Interaction"){
+
+    "Realiza la prueba Exacta de Fisher por pares para detectar eventos mutuamente excluyentes o simultáneos no top dos 20 genes."
+
+  }
+
+})
+
+```
+
+
+#### MAF Tables
+
+```{r Tables-MAF-GH Server}
+
+# Tabela com Resumo das alteraçãoes por Amostra
+
+output$maf.gh <- DT::renderDataTable({
+  
+aux2 <- read.table(paste0(address.gh(),
+                    "/Table/MAF_files/GH_sampleSummary.txt"),
+             header = TRUE)
+
+names(aux2)[1] <- "Samples"
+aux2$Samples <- gsub("PC_PC_","",aux2$Samples)
+
+aux2 <- aux2[,c(which(names(aux2) == "Samples"),
+              which(names(aux2) == "total"),
+             2:(ncol(aux2)-1))]
+
+names(aux2)[2] <- "Total"
+
+aux2 <- separate(data = aux2,
+                 col = Samples,
+                 into = c("Samples","Class"),
+                 sep = "-")
+
+DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "VARIAÇÕES POR AMOSTRAS",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 3))
+              )
+  
+})
+
+
+# Tabela com o resumo de alterações por Genes
+
+output$maf.gh.class <- DT::renderDataTable({
+  
+aux3 <- read.table(paste0(address.gh(),"/Table/MAF_files/GH_geneSummary.txt"),
+                   header = TRUE)
+
+
+names(aux3)[1] <- "Symbol"
+
+aux3 <- aux3[,c(which(names(aux3) == "Symbol"),
+                which(names(aux3) == "total"),
+                which(names(aux3) == "MutatedSamples"),
+                which(names(aux3) == "AlteredSamples"),
+                2:(ncol(aux3)-3))]
+
+DT::datatable(aux3,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "VARIAÇÕES POR GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 4))
+              )
+  
+
+  
+})
+
+# Tabela com um resumo das informaçãoes dos arquivos MAF 
+
+output$maf.gh.geral <- DT::renderDataTable({
+  
+aux1 <- read_xlsx(paste0(address.gh(),"/Table/MAF_files/MAF_filtered.xlsx"))
+
+aux1 <- aux1[,c(which(names(aux1)=="Tumor_Sample_Barcode"),
+                which(names(aux1)=="Matched_Norm_Sample_Barcode"),
+                which(names(aux1)=="Hugo_Symbol"),
+                which(names(aux1)=="Variant_Classification"),
+                which(names(aux1)=="Variant_Type"),
+                which(names(aux1)=="dbSNP_RS")
+                )]
+
+names(aux1) <- c("Tumor","Germline","Symbol",
+                 "Classification","Type","dbSNP_RS")
+
+aux1$Tumor <- gsub("PC_PC_","",aux1$Tumor)
+aux1$Germline <- gsub("PC_PC_","",aux1$Germline)
+
+DT::datatable(aux1,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "ANOTAÇÕES DAS VARIAÇÕES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+  
+})
+
+
+```
+
+```{r Tables-MAF-GH UI}
+
+dataTableOutput("maf.gh")
+
+dataTableOutput("maf.gh.class")
+
+dataTableOutput('maf.gh.geral')
+
+
+```
+
+
+#### MAF Integration
+
+```{r MAF Integration-GH UI}
+
+fluidPage(
+
+ navbarPage(title="",
+            tabPanel("Gene Characterization",
+                     wellPanel(
+                     textOutput("altered.gh.text")),
+                     collapsibleTreeOutput("altered.gh")),
+            tabPanel("TCGA Integration",
+                     wellPanel(
+                     textOutput("tcga.gh.text")),
+                     plotOutput("tcga.gh")),
+            tabPanel("Allele Frequency",
+                     wellPanel(
+                     textOutput("allele.gh.text")),
+                     plotlyOutput("allele.gh"),
+                     collapsibleTreeOutput("allele.gh.sample")
+                     )
+            
+            )
+
+)
+
+
+
+
+```
+
+```{r MAF Integration-GH Server}
+
+# Gene Caracterização
+
+output$altered.gh <- renderCollapsibleTree({
+
+altered.genes <- read_xlsx(paste0(address.gh(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+plot.altered <- collapsibleTree(
+                altered.genes,
+                hierarchy = c("SYMBOL", "dbSNP_RS", "IMPACT"),
+                width = 800,
+                fill = "darkblue",
+                root= "Genes Characterização",
+                zoomable = FALSE
+                )
+
+plot.altered
+
+})
+
+
+output$altered.gh.text <- renderText({
+
+"Representamos os genes com alteração na porcentagem de amostras definidas pelo usuário. Identificamos as variações nos genes segundo dbSNP_RS do NCBI. Finalmente, identificamos o impacto na proteína: HIGH (H): Supõe-se que a variante tenha alto impacto (disruptivo), provavelmente causando truncamento da proteína, perda de função ou desencadeando decaimento. MODERATE (M): Uma variante não disruptiva que pode alterar a eficácia. LOW (L): presume-se que a variante seja inofensiva ao comportamento da proteína"
+
+})
+
+
+
+# TCGA
+
+output$tcga.gh <- renderImage({
+
+    list(src = paste0(address.gh(),"/Picture/MAF_files/TCGA_compare.png"))
+
+})
+
+output$tcga.gh.text <- renderText({
+
+"Compara a carga de mutação da categoria contra os 33 coortes disponivies no TCGA. O eixo vertical (escala logarítmica) mostra o número de mutações por megabase, enquanto os diferentes tipos de câncer são ordenados no eixo horizontal com base em seus números médios de mutações somáticas, destacando no eixo superior o numero de amostras no estudo."
+  
+})
+
+
+# Allele frequency
+
+output$allele.gh <- renderPlotly({
+
+  altered.genes <- read_xlsx(paste0(address.gh(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+lineal.aux1 <- altered.genes[,c(1,2,3,14:ncol(altered.genes))]
+
+lineal.aux2 <- gather(data = lineal.aux1,
+                      key = "Allele",
+                      value = "Freq",
+                      4:ncol(lineal.aux1))
+names(lineal.aux2)[1] <- "Sample" 
+
+p <- ggplot(lineal.aux2,
+            aes(SYMBOL,
+                Freq, 
+                color = Allele,
+                fill = dbSNP_RS,
+                group = Sample)) + 
+  labs(x="",
+       title = "Allele frequency") + 
+  geom_point() +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, 
+                                   vjust = 0.5, 
+                                   hjust=1)) 
+
+
+p1 <- ggplotly(p,
+         tooltip=c("SYMBOL",
+                   "dbSNP_RS",
+                   "Allele",
+                   "Freq")) %>%
+  layout(
+    legend = list(
+      orientation = 'h', x = 0.3, y = 1
+    )
+)
+
+ p1 
+  
+})
+
+
+
+output$allele.gh.sample <- renderCollapsibleTree({
+
+altered.genes <- read_xlsx(paste0(address.gh(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+lineal.aux1 <- altered.genes[,c(1,2,3,14:ncol(altered.genes))]
+
+lineal.aux2 <- gather(data = lineal.aux1,
+                      key = "Allele",
+                      value = "Freq",
+                      4:ncol(lineal.aux1))
+names(lineal.aux2)[1] <- "Sample" 
+
+
+lineal.aux3 <- lineal.aux2[-which(is.na(lineal.aux2$Freq)),]
+
+
+allele.sample <- collapsibleTree(
+              lineal.aux3,
+              hierarchy = c("SYMBOL","dbSNP_RS","Sample"),
+              width = 800,
+              fill = "darkblue",
+              root= paste0("Allele Frequency"),
+              zoomable = FALSE
+              )
+
+allele.sample
+
+})
+
+
+output$allele.gh.text <- renderText({
+
+"Frequência de variante existente em 1000 genomas (AF),e na população africana (AFR_AF), Americana (AMR),  Asiática (ASN), Leste Asiático (EAS), Europeia (EUR), Sul da Ásia (SAS) e Afro-Americana (AA),Européia-Americana (EA) do NHLBI-ESP (combinadas de 1000 genomas). 
+  
+  **No final da pagina** as amostras que apresentam as variantes."
+
+})
+
+
+
+```
+
+
+
+#### DisGeNET 
+
+```{r DisGeNET-GH UI}
+
+fluidPage(
+
+  sidebarLayout(
+
+        sidebarPanel(
+
+          selectInput("disgenet.gh",
+                      label = "Plot",
+             choices = c("Network",
+                         "Heatmap_Gene",
+                         "Heatmap_Variant"),
+                      selected = 1),
+          wellPanel(
+            
+            textOutput("network.gh.text"),
+            textOutput("gene.gh.text"),
+            textOutput("variant.gh.text")
+            
+          )
+
+        ),
+
+        mainPanel(
+
+          plotOutput("plot.gh.disgenet"),
+          
+          
+        )
+
+ )
+
+)
+
+
+
+```
+
+```{r DisGeNET-GH Server}
+
+output$plot.gh.disgenet <- renderImage({
+
+    list(src = paste0(address.gh(),"/Picture/DisGeNET/",input$disgenet.gh,".png"))
+
+})
+
+output$network.gh.text <- renderText({
+
+  if (input$disgenet.gh == "Network"){
+
+   "Red (network) de associação entre as doenças (azul), com variantes gênicas (laranja) e o gene (rosa) alterado na porcentagem definidas pelo usuário. A largura das arestas é proporcional à pontuação da associação e o tamanho do nó proporcional à fração de doenças na classe de doenças. ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+output$gene.gh.text <- renderText({
+
+  if (input$disgenet.gh == "Heatmap_Gene"){
+
+   "Lista de doenças associadas aos genes com as variações. A escala de cores é proporcional à pontuação do GDA (associações de doenças genéticas). ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+
+output$variant.gh.text <- renderText({
+
+  if (input$disgenet.gh == "Heatmap_Variant"){
+
+"Lista de doenças associadas as variações. A escala de cores é proporcional à porcentagem de dbSNP para cada doença em cada classe. ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+
+```
+
+
+#### DisGeNET Tables
+
+```{r DisGeNET-Tables-GH Server}
+
+# Tabela as evidenças dos SNP na literatura
+
+output$evidence.gh.snp <- DT::renderDataTable({
+  
+
+test <- paste0(address.gh(),
+                  "/Table/DisGeNET/VariantEvidence.xlsx")
+  
+
+if (file.exists(test)) {
+aux2 <- read_xlsx(paste0(address.gh(),
+                  "/Table/DisGeNET/VariantEvidence.xlsx"))
+
+aux2 <- DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS VARIANTES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 2))
+              )
+aux2  
+
+}else{
+
+aux2 <- matrix(c("NULL","NULL","NULL", "NULL"), nrow=1, ncol=4)
+aux2 <- data.frame (aux2) 
+names(aux2) <- c("dbSNP","Gene","pmid","year")
+
+aux2 <- DT::datatable(aux2,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+
+aux2
+
+
+}
+
+
+})
+
+# Tabela as evidenças por os Genes
+# Se mque necessariamente a doença esteja vinculada
+# a SNP
+
+output$evidence.gh.gene <- DT::renderDataTable({
+
+test <- paste0(address.gh(),
+                  "/Table/DisGeNET/GeneEvidence.xlsx")
+  
+
+if (file.exists(test)) {
+aux2 <- read_xlsx(paste0(address.gh(),
+                  "/Table/DisGeNET/GeneEvidence.xlsx"))
+
+aux2 <- DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS A GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 2))
+              )
+aux2  
+
+}else{
+
+aux2 <- matrix(c("NULL","NULL","NULL", "NULL"), nrow=1, ncol=4)
+aux2 <- data.frame (aux2) 
+names(aux2) <- c("dbSNP","Gene","pmid","year")
+
+aux2 <- DT::datatable(aux2,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS VARIANTES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+
+aux2
+
+
+}
+
+
+})
+
+
+```
+
+```{r DisGeNET-Tables-GH UI}
+
+dataTableOutput("evidence.gh.snp")
+
+dataTableOutput("evidence.gh.gene")
+
+
+
+```
+
+#### DisGeNET Integration
+
+```{r DisGeNET Integration-GH UI}
+
+fluidPage(
+
+         wellPanel(
+         textOutput("summary.gh.text")),
+         collapsibleTreeOutput("summary.gh")
+    
+)
+
+
+
+
+```
+
+```{r DisGeNET Integration-GH Server}
+
+# Gene Caracterização
+
+output$summary.gh <- renderCollapsibleTree({
+
+  
+summary.total <- read_xlsx(paste0(address.gh(),     "/Table/DisGeNET/Summary_collapsible.xlsx"))
+
+summary.total <- data.frame(summary.total)
+
+summary.total <- collapsibleTree(summary.total,
+                 root = "Sumary",
+                  attribute = "Tumor_Sample_Barcode",
+                  hierarchy = c("snp",
+                                "gene_symbol",
+                                "Variant_Classification",
+                                "VARIANT_CLASS",
+                                "HGVSp",
+                                "Tumor_Sample_Barcode",
+                                "disease_name"),
+                  width = 800,
+                  height = 200,
+                  zoomable = FALSE,
+                  fill = "orange",
+                  fontSize = 10)
+
+summary.total
+
+})
+
+
+output$summary.gh.text <- renderText({
+
+"Variações presentes na porcentagem de amostras definias pelo usuário. Visualizando os genes, o tipo de alteração, as amostras que a possuim e as doenças associadas com a variação."
+  
+})
+
+
+```
+
+
+
+
+### ACTH {.tabset}
+
+```{r Carregando aos Dados-ACTH}
+
+address.acth <- reactive({
+  
+  paste0("_site/Resultados/",input$protocol,
+         "/ACTH",
+         "_percent_",input$npercent,
+         "_tc_",input$tc,
+         "_td_",input$td,
+         "_nd_",input$nd)
+  
+})
+
+address.rda.acth <- reactive({
+  
+  paste0("_site/Resultados/",input$protocol,
+         "/RData/ACTH/ACTH_",
+         "percent_",input$npercent,
+         "_tc_",input$tc,
+         "_td_",input$td,
+         "_nd_",input$nd, ".RData")
+  
+})
+
+
+```
+
+
+<div class=text-center>
+
+**Resumo dos Resultados ACTH**
+
+</div>
+
+
+```{r Summary-Results-MAF-ACTH Server}
+
+# Tabela com Resumo das alteraçãoes por Amostra
+
+output$results.summary.acth <- DT::renderDataTable({
+  
+aux2 <- read.table(paste0(address.acth(),
+                    "/Table/MAF_files/ACTH_summary.txt"),
+             header = TRUE)
+
+aux2 <- aux2[,c(1,2)]
+
+
+DT::datatable(aux2,
+              rownames = FALSE,
+              extensions = "FixedColumns",
+                options = list(
+                  columnDefs = list(list(className = 'dt-center',
+                                         targets = "_all")),
+                  paging = FALSE, 
+                  searching = FALSE, 
+                  info = FALSE,
+                  sort = TRUE, 
+                  scrollX = TRUE)
+              )
+  
+})
+
+
+
+```
+
+```{r Summary-Results-MAF-ACTH UI}
+
+dataTableOutput("results.summary.acth")
+
+
+```
+
+
+#### MAF tools 
+
+```{r MAF-tools-ACTH UI}
+
+fluidPage(
+
+  sidebarLayout(
+
+        sidebarPanel(
+
+          selectInput("mafview.acth",
+                      label = "Plot",
+             choices = c("MAF_Summary",
+                         "Onco_plot",
+                         "TiTv_plot",
+                         "Somatic_Interaction"),
+                      selected = 1),
+          wellPanel(
+            textOutput("maf.summary.acth.text"),
+            textOutput("onco.plot.acth.text"),
+            textOutput("titv.acth.text"),
+            textOutput("somatic.acth.text")
+            
+          )
+
+        ),
+
+        mainPanel(
+
+          plotOutput("graph.acth"),
+          
+          
+        )
+
+ )
+
+)
+
+
+
+```
+
+```{r MAF-tools-ACTH Server}
+
+output$graph.acth <- renderImage({
+
+    list(src = paste0(address.acth(),"/Picture/MAF_files/",input$mafview.acth,".png"))
+
+})
+
+
+output$maf.summary.acth.text <- renderText({
+
+  if (input$mafview.acth == "MAF_Summary"){
+
+"Resumo dos arquivos MAF, exibindo o número e tipos de variantes, assim como os genes com mais alterações."
+
+}
+
+})
+
+
+output$onco.plot.acth.text <- renderText({
+
+  if (input$mafview.acth == "Onco_plot"){
+
+"Top de 20 genes (filas) alterados nas amostras (colunas). Destacamos a classificação da variante e a porcentagem de amostras alteradas. **Aclaração**: Varaintes **MultiHits** são os genes que sofreram mutação mais de uma vez na mesma amostra."
+    
+}
+
+})
+
+
+output$titv.acth.text <- renderText({
+
+  if (input$mafview.acth == "TiTv_plot"){
+
+    "Distribuição geral das Transições e Transversões nas amostras."
+
+  }
+
+})
+
+output$somatic.acth.text <- renderText({
+
+  if (input$mafview.acth == "Somatic_Interaction"){
+
+"Realiza la prueba Exacta de Fisher por pares para detectar eventos mutuamente excluyentes o simultáneos no top dos 20 genes."
+
+  }
+
+})
+
+```
+
+#### MAF Tables
+
+```{r Tables-MAF-ACTH Server}
+
+# Tabela com Resumo das alteraçãoes por Amostra
+
+output$maf.acth <- DT::renderDataTable({
+  
+aux2 <- read.table(paste0(address.acth(),
+                    "/Table/MAF_files/ACTH_sampleSummary.txt"),
+             header = TRUE)
+
+names(aux2)[1] <- "Samples"
+aux2$Samples <- gsub("PC_PC_","",aux2$Samples)
+
+aux2 <- aux2[,c(which(names(aux2) == "Samples"),
+              which(names(aux2) == "total"),
+             2:(ncol(aux2)-1))]
+
+names(aux2)[2] <- "Total"
+
+aux2 <- separate(data = aux2,
+                 col = Samples,
+                 into = c("Samples","Class"),
+                 sep = "-")
+
+DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "VARIAÇÕES POR AMOSTRAS",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 3))
+              )
+  
+})
+
+
+# Tabela com o resumo de alterações por Genes
+
+output$maf.acth.class <- DT::renderDataTable({
+  
+aux3 <- read.table(paste0(address.acth(),"/Table/MAF_files/ACTH_geneSummary.txt"),
+                   header = TRUE)
+
+
+names(aux3)[1] <- "Symbol"
+
+aux3 <- aux3[,c(which(names(aux3) == "Symbol"),
+                which(names(aux3) == "total"),
+                which(names(aux3) == "MutatedSamples"),
+                which(names(aux3) == "AlteredSamples"),
+                2:(ncol(aux3)-3))]
+
+DT::datatable(aux3,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "VARIAÇÕES POR GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 4))
+              )
+  
+
+  
+})
+
+# Tabela com um resumo das informaçãoes dos arquivos MAF 
+
+output$maf.acth.geral <- DT::renderDataTable({
+  
+aux1 <- read_xlsx(paste0(address.acth(),"/Table/MAF_files/MAF_filtered.xlsx"))
+
+aux1 <- aux1[,c(which(names(aux1)=="Tumor_Sample_Barcode"),
+                which(names(aux1)=="Matched_Norm_Sample_Barcode"),
+                which(names(aux1)=="Hugo_Symbol"),
+                which(names(aux1)=="Variant_Classification"),
+                which(names(aux1)=="Variant_Type"),
+                which(names(aux1)=="dbSNP_RS")
+                )]
+
+names(aux1) <- c("Tumor","Germline","Symbol",
+                 "Classification","Type","dbSNP_RS")
+
+aux1$Tumor <- gsub("PC_PC_","",aux1$Tumor)
+aux1$Germline <- gsub("PC_PC_","",aux1$Germline)
+
+DT::datatable(aux1,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "ANOTAÇÕES DAS VARIAÇÕES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+  
+})
+
+
+```
+
+```{r Tables-MAF-ACTH UI}
+
+dataTableOutput("maf.acth")
+
+dataTableOutput("maf.acth.class")
+
+dataTableOutput('maf.acth.geral')
+
+
+```
+
+
+#### MAF Integration
+
+```{r MAF Integration-ACTH UI}
+
+fluidPage(
+
+ navbarPage(title="",
+            tabPanel("Gene Characterization",
+                     wellPanel(
+                     textOutput("altered.acth.text")),
+                     collapsibleTreeOutput("altered.acth")),
+            tabPanel("TCGA Integration",
+                     wellPanel(
+                     textOutput("tcga.acth.text")),
+                     plotOutput("tcga.acth")),
+            tabPanel("Allele Frequency",
+                     wellPanel(
+                     textOutput("allele.acth.text")),
+                     plotlyOutput("allele.acth"),
+                     collapsibleTreeOutput("allele.acth.sample")
+                     )
+            
+            )
+
+)
+
+
+
+
+```
+
+```{r MAF Integration-ACTH Server}
+
+# Gene Caracterização
+
+output$altered.acth <- renderCollapsibleTree({
+
+altered.genes <- read_xlsx(paste0(address.acth(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+plot.altered <- collapsibleTree(
+                altered.genes,
+                hierarchy = c("SYMBOL", "dbSNP_RS", "IMPACT"),
+                width = 800,
+                fill = "darkblue",
+                root= "Genes Characterização",
+                zoomable = FALSE
+                )
+
+plot.altered
+
+})
+
+
+output$altered.acth.text <- renderText({
+
+"Representamos os genes com alteração na porcentagem de amostras definidas pelo usuário. Identificamos as variações nos genes segundo dbSNP_RS do NCBI. Finalmente, identificamos o impacto na proteína: HIGH (H): Supõe-se que a variante tenha alto impacto (disruptivo), provavelmente causando truncamento da proteína, perda de função ou desencadeando decaimento. MODERATE (M): Uma variante não disruptiva que pode alterar a eficácia. LOW (L): presume-se que a variante seja inofensiva ao comportamento da proteína"
+
+})
+
+
+
+# TCGA
+
+output$tcga.acth <- renderImage({
+
+    list(src = paste0(address.acth(),"/Picture/MAF_files/TCGA_compare.png"))
+
+})
+
+output$tcga.acth.text <- renderText({
+
+"Compara a carga de mutação da categoria contra os 33 coortes disponivies no TCGA. O eixo vertical (escala logarítmica) mostra o número de mutações por megabase, enquanto os diferentes tipos de câncer são ordenados no eixo horizontal com base em seus números médios de mutações somáticas, destacando no eixo superior o numero de amostras no estudo."
+  
+})
+
+
+# Allele frequency
+
+output$allele.acth <- renderPlotly({
+
+  altered.genes <- read_xlsx(paste0(address.acth(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+lineal.aux1 <- altered.genes[,c(1,2,3,14:ncol(altered.genes))]
+
+lineal.aux2 <- gather(data = lineal.aux1,
+                      key = "Allele",
+                      value = "Freq",
+                      4:ncol(lineal.aux1))
+names(lineal.aux2)[1] <- "Sample" 
+
+p <- ggplot(lineal.aux2,
+            aes(SYMBOL,
+                Freq, 
+                color = Allele,
+                fill = dbSNP_RS,
+                group = Sample)) + 
+  labs(x="",
+       title = "Allele frequency") + 
+  geom_point() +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, 
+                                   vjust = 0.5, 
+                                   hjust=1)) 
+
+
+p1 <- ggplotly(p,
+         tooltip=c("SYMBOL",
+                   "dbSNP_RS",
+                   "Allele",
+                   "Freq")) %>%
+  layout(
+    legend = list(
+      orientation = 'h', x = 0.3, y = 1
+    )
+)
+
+ p1 
+  
+})
+
+
+
+output$allele.acth.sample <- renderCollapsibleTree({
+
+altered.genes <- read_xlsx(paste0(address.acth(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+lineal.aux1 <- altered.genes[,c(1,2,3,14:ncol(altered.genes))]
+
+lineal.aux2 <- gather(data = lineal.aux1,
+                      key = "Allele",
+                      value = "Freq",
+                      4:ncol(lineal.aux1))
+names(lineal.aux2)[1] <- "Sample" 
+
+
+lineal.aux3 <- lineal.aux2[-which(is.na(lineal.aux2$Freq)),]
+
+
+allele.sample <- collapsibleTree(
+              lineal.aux3,
+              hierarchy = c("SYMBOL","dbSNP_RS","Sample"),
+              width = 800,
+              fill = "darkblue",
+              root= paste0("Allele Frequency"),
+              zoomable = FALSE
+              )
+
+allele.sample
+
+})
+
+
+output$allele.acth.text <- renderText({
+
+"Frequência de variante existente em 1000 genomas (AF),e na população africana (AFR_AF), Americana (AMR),  Asiática (ASN), Leste Asiático (EAS), Europeia (EUR), Sul da Ásia (SAS) e Afro-Americana (AA),Européia-Americana (EA) do NHLBI-ESP (combinadas de 1000 genomas). 
+  
+  **No final da pagina** as amostras que apresentam as variantes."
+
+})
+
+
+
+```
+
+
+#### DisGeNET 
+
+```{r DisGeNET-ACTH UI}
+
+fluidPage(
+
+  sidebarLayout(
+
+        sidebarPanel(
+
+          selectInput("disgenet.acth",
+                      label = "Plot",
+             choices = c("Network",
+                         "Heatmap_Gene",
+                         "Heatmap_Variant"),
+                      selected = 1),
+          wellPanel(
+            
+            textOutput("network.acth.text"),
+            textOutput("gene.acth.text"),
+            textOutput("variant.acth.text")
+            
+          )
+
+        ),
+
+        mainPanel(
+
+          plotOutput("plot.acth.disgenet"),
+          
+          
+        )
+
+ )
+
+)
+
+
+
+```
+
+```{r DisGeNET-ACTH Server}
+
+output$plot.acth.disgenet <- renderImage({
+
+    list(src = paste0(address.acth(),"/Picture/DisGeNET/",input$disgenet.acth,".png"))
+
+})
+
+output$network.acth.text <- renderText({
+
+  if (input$disgenet.acth == "Network"){
+
+ "Red (network) de associação entre as doenças (azul), com variantes gênicas (laranja) e o gene (rosa) alterado na porcentagem definidas pelo usuário. A largura das arestas é proporcional à pontuação da associação e o tamanho do nó proporcional à fração de doenças na classe de doenças. ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+output$gene.acth.text <- renderText({
+
+  if (input$disgenet.acth == "Heatmap_Gene"){
+
+"Lista de doenças associadas aos genes com as variações. A escala de cores é proporcional à pontuação do GDA (associações de doenças genéticas). ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+
+output$variant.acth.text <- renderText({
+
+  if (input$disgenet.acth == "Heatmap_Variant"){
+
+"Lista de doenças associadas as variações. A escala de cores é proporcional à porcentagem de dbSNP para cada doença em cada classe. ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+
+```
+
+
+
+#### DisGeNET Tables
+
+```{r DisGeNET-Tables-ACTH Server}
+
+# Tabela as evidenças dos SNP na literatura
+
+output$evidence.acth.snp <- DT::renderDataTable({
+  
+
+test <- paste0(address.acth(),
+                  "/Table/DisGeNET/VariantEvidence.xlsx")
+  
+
+if (file.exists(test)) {
+aux2 <- read_xlsx(paste0(address.acth(),
+                  "/Table/DisGeNET/VariantEvidence.xlsx"))
+
+aux2 <- DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS VARIANTES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 2))
+              )
+aux2  
+
+}else{
+
+aux2 <- matrix(c("NULL","NULL","NULL", "NULL"), nrow=1, ncol=4)
+aux2 <- data.frame (aux2) 
+names(aux2) <- c("dbSNP","Gene","pmid","year")
+
+aux2 <- DT::datatable(aux2,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+
+aux2
+
+
+}
+
+
+})
+
+# Tabela as evidenças por os Genes
+# Se mque necessariamente a doença esteja vinculada
+# a SNP
+
+output$evidence.acth.gene <- DT::renderDataTable({
+
+test <- paste0(address.acth(),
+                  "/Table/DisGeNET/GeneEvidence.xlsx")
+  
+
+if (file.exists(test)) {
+aux2 <- read_xlsx(paste0(address.acth(),
+                  "/Table/DisGeNET/GeneEvidence.xlsx"))
+
+aux2 <- DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS A GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 2))
+              )
+aux2  
+
+}else{
+
+aux2 <- matrix(c("NULL","NULL","NULL", "NULL"), nrow=1, ncol=4)
+aux2 <- data.frame (aux2) 
+names(aux2) <- c("dbSNP","Gene","pmid","year")
+
+aux2 <- DT::datatable(aux2,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS VARIANTES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+
+aux2
+
+
+}
+
+
+})
+
+
+```
+
+```{r DisGeNET-Tables-ACTH UI}
+
+dataTableOutput("evidence.acth.snp")
+
+dataTableOutput("evidence.acth.gene")
+
+```
+
+
+#### DisGeNET Integration
+
+```{r DisGeNET Integration-ACTH UI}
+
+fluidPage(
+
+         wellPanel(
+         textOutput("summary.acth.text")),
+         collapsibleTreeOutput("summary.acth")
+    
+)
+
+
+
+
+```
+
+```{r DisGeNET Integration-ACTH Server}
+
+# Gene Caracterização
+
+output$summary.acth <- renderCollapsibleTree({
+
+  
+summary.total <- read_xlsx(paste0(address.acth(),     "/Table/DisGeNET/Summary_collapsible.xlsx"))
+
+summary.total <- data.frame(summary.total)
+
+summary.total <- collapsibleTree(summary.total,
+                 root = "Sumary",
+                  attribute = "Tumor_Sample_Barcode",
+                  hierarchy = c("snp",
+                                "gene_symbol",
+                                "Variant_Classification",
+                                "VARIANT_CLASS",
+                                "HGVSp",
+                                "Tumor_Sample_Barcode",
+                                "disease_name"),
+                  width = 800,
+                  height = 200,
+                  zoomable = FALSE,
+                  fill = "orange",
+                  fontSize = 10)
+
+summary.total
+
+})
+
+
+output$summary.acth.text <- renderText({
+
+"Variações presentes na porcentagem de amostras definias pelo usuário. Visualizando os genes, o tipo de alteração, as amostras que a possuim e as doenças associadas com a variação."
+
+})
+
+
+```
+
+
+### NS {.tabset}
+
+
+```{r Carregando aos Dados-NS}
+
+address.ns <- reactive({
+  
+  paste0("_site/Resultados/",input$protocol,
+         "/NS",
+         "_percent_",input$npercent,
+         "_tc_",input$tc,
+         "_td_",input$td,
+         "_nd_",input$nd)
+  
+})
+
+address.rda.acth <- reactive({
+  
+  paste0("_site/Resultados/",input$protocol,
+         "/RData/NS/NS_",
+         "percent_",input$npercent,
+         "_tc_",input$tc,
+         "_td_",input$td,
+         "_nd_",input$nd, ".RData")
+  
+})
+
+
+```
+
+
+<div class=text-center>
+
+**Resumo dos Resultados NS**
+
+</div>
+
+
+```{r Summary-Results-MAF-NS Server}
+
+# Tabela com Resumo das alteraçãoes por Amostra
+
+output$results.summary.ns <- DT::renderDataTable({
+  
+aux2 <- read.table(paste0(address.ns(),
+                    "/Table/MAF_files/NS_summary.txt"),
+             header = TRUE)
+
+aux2 <- aux2[,c(1,2)]
+
+
+DT::datatable(aux2,
+              rownames = FALSE,
+              extensions = "FixedColumns",
+                options = list(
+                  columnDefs = list(list(className = 'dt-center',
+                                         targets = "_all")),
+                  paging = FALSE, 
+                  searching = FALSE, 
+                  info = FALSE,
+                  sort = TRUE, 
+                  scrollX = TRUE)
+              )
+  
+})
+
+
+
+```
+
+```{r Summary-Results-MAF-NS UI}
+
+dataTableOutput("results.summary.ns")
+
+
+```
+
+
+
+#### MAF tools 
+
+```{r MAF-tools-NS UI}
+
+fluidPage(
+
+  sidebarLayout(
+
+        sidebarPanel(
+
+          selectInput("mafview.ns",
+                      label = "Plot",
+             choices = c("MAF_Summary",
+                         "Onco_plot",
+                         "TiTv_plot",
+                         "Somatic_Interaction"),
+                      selected = 1),
+          wellPanel(
+            textOutput("maf.summary.ns.text"),
+            textOutput("onco.plot.ns.text"),
+            textOutput("titv.ns.text"),
+            textOutput("somatic.ns.text")
+            
+          )
+
+        ),
+
+        mainPanel(
+
+          plotOutput("graph.ns"),
+          
+          
+        )
+
+ )
+
+)
+
+
+
+```
+
+```{r MAF-tools-NS Server}
+
+output$graph.ns <- renderImage({
+
+    list(src = paste0(address.ns(),"/Picture/MAF_files/",input$mafview.ns,".png"))
+
+})
+
+
+output$maf.summary.ns.text <- renderText({
+
+  if (input$mafview.ns == "MAF_Summary"){
+
+ "Resumo dos arquivos MAF, exibindo o número e tipos de variantes, assim como os genes com mais alterações."
+
+}
+
+})
+
+
+output$onco.plot.ns.text <- renderText({
+
+  if (input$mafview.ns == "Onco_plot"){
+
+ "Top de 20 genes (filas) alterados nas amostras (colunas). Destacamos a classificação da variante e a porcentagem de amostras alteradas. **Aclaração**: Varaintes **MultiHits** são os genes que sofreram mutação mais de uma vez na mesma amostra."
+    
+}
+
+})
+
+
+output$titv.ns.text <- renderText({
+
+  if (input$mafview.ns == "TiTv_plot"){
+
+    "Distribuição geral das Transições e Transversões nas amostras."
+
+  }
+
+})
+
+output$somatic.ns.text <- renderText({
+
+  if (input$mafview.ns == "Somatic_Interaction"){
+
+"Realiza la prueba Exacta de Fisher por pares para detectar eventos mutuamente excluyentes o simultáneos no top dos 20 genes."
+
+  }
+
+})
+
+```
+
+
+#### MAF Tables
+
+```{r Tables-MAF-NS Server}
+
+# Tabela com Resumo das alteraçãoes por Amostra
+
+output$maf.ns <- DT::renderDataTable({
+  
+aux2 <- read.table(paste0(address.ns(),
+                    "/Table/MAF_files/NS_sampleSummary.txt"),
+             header = TRUE)
+
+names(aux2)[1] <- "Samples"
+aux2$Samples <- gsub("PC_PC_","",aux2$Samples)
+
+aux2 <- aux2[,c(which(names(aux2) == "Samples"),
+              which(names(aux2) == "total"),
+             2:(ncol(aux2)-1))]
+
+names(aux2)[2] <- "Total"
+
+aux2 <- separate(data = aux2,
+                 col = Samples,
+                 into = c("Samples","Class"),
+                 sep = "-")
+
+DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "VARIAÇÕES POR AMOSTRAS",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 3))
+              )
+  
+})
+
+
+# Tabela com o resumo de alterações por Genes
+
+output$maf.ns.class <- DT::renderDataTable({
+  
+aux3 <- read.table(paste0(address.ns(),"/Table/MAF_files/NS_geneSummary.txt"),
+                   header = TRUE)
+
+
+names(aux3)[1] <- "Symbol"
+
+aux3 <- aux3[,c(which(names(aux3) == "Symbol"),
+                which(names(aux3) == "total"),
+                which(names(aux3) == "MutatedSamples"),
+                which(names(aux3) == "AlteredSamples"),
+                2:(ncol(aux3)-3))]
+
+DT::datatable(aux3,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "VARIAÇÕES POR GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 4))
+              )
+  
+
+  
+})
+
+# Tabela com um resumo das informaçãoes dos arquivos MAF 
+
+output$maf.ns.geral <- DT::renderDataTable({
+  
+aux1 <- read_xlsx(paste0(address.ns(),"/Table/MAF_files/MAF_filtered.xlsx"))
+
+aux1 <- aux1[,c(which(names(aux1)=="Tumor_Sample_Barcode"),
+                which(names(aux1)=="Matched_Norm_Sample_Barcode"),
+                which(names(aux1)=="Hugo_Symbol"),
+                which(names(aux1)=="Variant_Classification"),
+                which(names(aux1)=="Variant_Type"),
+                which(names(aux1)=="dbSNP_RS")
+                )]
+
+names(aux1) <- c("Tumor","Germline","Symbol",
+                 "Classification","Type","dbSNP_RS")
+
+aux1$Tumor <- gsub("PC_PC_","",aux1$Tumor)
+aux1$Germline <- gsub("PC_PC_","",aux1$Germline)
+
+DT::datatable(aux1,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "ANOTAÇÕES DAS VARIAÇÕES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+  
+})
+
+
+```
+
+```{r Tables-MAF-NS UI}
+
+dataTableOutput("maf.ns")
+
+dataTableOutput("maf.ns.class")
+
+dataTableOutput('maf.ns.geral')
+
+
+```
+
+
+#### MAF Integration
+
+```{r MAF Integration-NS UI}
+
+fluidPage(
+
+ navbarPage(title="",
+            tabPanel("Gene Characterization",
+                     wellPanel(
+                     textOutput("altered.ns.text")),
+                     collapsibleTreeOutput("altered.ns")),
+            tabPanel("TCGA Integration",
+                     wellPanel(
+                     textOutput("tcga.ns.text")),
+                     plotOutput("tcga.ns")),
+            tabPanel("Allele Frequency",
+                     wellPanel(
+                     textOutput("allele.ns.text")),
+                     plotlyOutput("allele.ns"),
+                     collapsibleTreeOutput("allele.ns.sample")
+                     )
+            
+            )
+
+)
+
+
+
+
+```
+
+```{r MAF Integration-NS Server}
+
+# Gene Caracterização
+
+output$altered.ns <- renderCollapsibleTree({
+
+altered.genes <- read_xlsx(paste0(address.ns(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+plot.altered <- collapsibleTree(
+                altered.genes,
+                hierarchy = c("SYMBOL", "dbSNP_RS", "IMPACT"),
+                width = 800,
+                fill = "darkblue",
+                root= "Genes Characterização",
+                zoomable = FALSE
+                )
+
+plot.altered
+
+})
+
+
+output$altered.ns.text <- renderText({
+
+"Representamos os genes com alteração na porcentagem de amostras definidas pelo usuário. Identificamos as variações nos genes segundo dbSNP_RS do NCBI. Finalmente, identificamos o impacto na proteína: HIGH (H): Supõe-se que a variante tenha alto impacto (disruptivo), provavelmente causando truncamento da proteína, perda de função ou desencadeando decaimento. MODERATE (M): Uma variante não disruptiva que pode alterar a eficácia. LOW (L): presume-se que a variante seja inofensiva ao comportamento da proteína"
+  
+})
+
+
+
+# TCGA
+
+output$tcga.ns <- renderImage({
+
+    list(src = paste0(address.ns(),"/Picture/MAF_files/TCGA_compare.png"))
+
+})
+
+output$tcga.ns.text <- renderText({
+
+"Compara a carga de mutação da categoria contra os 33 coortes disponivies no TCGA. O eixo vertical (escala logarítmica) mostra o número de mutações por megabase, enquanto os diferentes tipos de câncer são ordenados no eixo horizontal com base em seus números médios de mutações somáticas, destacando no eixo superior o numero de amostras no estudo."
+  
+})
+
+
+# Allele frequency
+
+output$allele.ns <- renderPlotly({
+
+  altered.genes <- read_xlsx(paste0(address.ns(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+lineal.aux1 <- altered.genes[,c(1,2,3,14:ncol(altered.genes))]
+
+lineal.aux2 <- gather(data = lineal.aux1,
+                      key = "Allele",
+                      value = "Freq",
+                      4:ncol(lineal.aux1))
+names(lineal.aux2)[1] <- "Sample" 
+
+p <- ggplot(lineal.aux2,
+            aes(SYMBOL,
+                Freq, 
+                color = Allele,
+                fill = dbSNP_RS,
+                group = Sample)) + 
+  labs(x="",
+       title = "Allele frequency") + 
+  geom_point() +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, 
+                                   vjust = 0.5, 
+                                   hjust=1)) 
+
+
+p1 <- ggplotly(p,
+         tooltip=c("SYMBOL",
+                   "dbSNP_RS",
+                   "Allele",
+                   "Freq")) %>%
+  layout(
+    legend = list(
+      orientation = 'h', x = 0.3, y = 1
+    )
+)
+
+ p1 
+  
+})
+
+
+
+output$allele.ns.sample <- renderCollapsibleTree({
+
+altered.genes <- read_xlsx(paste0(address.ns(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+lineal.aux1 <- altered.genes[,c(1,2,3,14:ncol(altered.genes))]
+
+lineal.aux2 <- gather(data = lineal.aux1,
+                      key = "Allele",
+                      value = "Freq",
+                      4:ncol(lineal.aux1))
+names(lineal.aux2)[1] <- "Sample" 
+
+
+lineal.aux3 <- lineal.aux2[-which(is.na(lineal.aux2$Freq)),]
+
+
+allele.sample <- collapsibleTree(
+              lineal.aux3,
+              hierarchy = c("SYMBOL","dbSNP_RS","Sample"),
+              width = 800,
+              fill = "darkblue",
+              root= paste0("Allele Frequency"),
+              zoomable = FALSE
+              )
+
+allele.sample
+
+})
+
+
+output$allele.ns.text <- renderText({
+
+ "Frequência de variante existente em 1000 genomas (AF),e na população africana (AFR_AF), Americana (AMR),  Asiática (ASN), Leste Asiático (EAS), Europeia (EUR), Sul da Ásia (SAS) e Afro-Americana (AA),Européia-Americana (EA) do NHLBI-ESP (combinadas de 1000 genomas). 
+  
+  **No final da pagina** as amostras que apresentam as variantes."
+
+})
+
+
+
+```
+
+
+#### DisGeNET 
+
+```{r DisGeNET-NS UI}
+
+fluidPage(
+
+  sidebarLayout(
+
+        sidebarPanel(
+
+          selectInput("disgenet.ns",
+                      label = "Plot",
+             choices = c("Network",
+                         "Heatmap_Gene",
+                         "Heatmap_Variant"),
+                      selected = 1),
+          wellPanel(
+            
+            textOutput("network.ns.text"),
+            textOutput("gene.ns.text"),
+            textOutput("variant.ns.text")
+            
+          )
+
+        ),
+
+        mainPanel(
+
+          plotOutput("plot.ns.disgenet"),
+          
+          
+        )
+
+ )
+
+)
+
+
+
+```
+
+```{r DisGeNET-NS Server}
+
+output$plot.ns.disgenet <- renderImage({
+
+    list(src = paste0(address.ns(),"/Picture/DisGeNET/",input$disgenet.ns,".png"))
+
+})
+
+output$network.ns.text <- renderText({
+
+  if (input$disgenet.ns == "Network"){
+
+"Red (network) de associação entre as doenças (azul), com variantes gênicas (laranja) e o gene (rosa) alterado na porcentagem definidas pelo usuário. A largura das arestas é proporcional à pontuação da associação e o tamanho do nó proporcional à fração de doenças na classe de doenças. ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+output$gene.ns.text <- renderText({
+
+  if (input$disgenet.ns == "Heatmap_Gene"){
+
+"Lista de doenças associadas aos genes com as variações. A escala de cores é proporcional à pontuação do GDA (associações de doenças genéticas). ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+
+output$variant.ns.text <- renderText({
+
+  if (input$disgenet.ns == "Heatmap_Variant"){
+
+"Lista de doenças associadas as variações. A escala de cores é proporcional à porcentagem de dbSNP para cada doença em cada classe. ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+
+```
+
+#### DisGeNET Tables
+
+```{r DisGeNET-Tables-NS Server}
+
+# Tabela as evidenças dos SNP na literatura
+
+output$evidence.ns.snp <- DT::renderDataTable({
+  
+
+test <- paste0(address.ns(),
+                  "/Table/DisGeNET/VariantEvidence.xlsx")
+  
+
+if (file.exists(test)) {
+aux2 <- read_xlsx(paste0(address.ns(),
+                  "/Table/DisGeNET/VariantEvidence.xlsx"))
+
+aux2 <- DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS VARIANTES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 2))
+              )
+aux2  
+
+}else{
+
+aux2 <- matrix(c("NULL","NULL","NULL", "NULL"), nrow=1, ncol=4)
+aux2 <- data.frame (aux2) 
+names(aux2) <- c("dbSNP","Gene","pmid","year")
+
+aux2 <- DT::datatable(aux2,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+
+aux2
+
+
+}
+
+
+})
+
+# Tabela as evidenças por os Genes
+# Se mque necessariamente a doença esteja vinculada
+# a SNP
+
+output$evidence.ns.gene <- DT::renderDataTable({
+
+test <- paste0(address.ns(),
+                  "/Table/DisGeNET/GeneEvidence.xlsx")
+  
+
+if (file.exists(test)) {
+aux2 <- read_xlsx(paste0(address.ns(),
+                  "/Table/DisGeNET/GeneEvidence.xlsx"))
+
+aux2 <- DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS A GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 2))
+              )
+aux2  
+
+}else{
+
+aux2 <- matrix(c("NULL","NULL","NULL", "NULL"), nrow=1, ncol=4)
+aux2 <- data.frame (aux2) 
+names(aux2) <- c("dbSNP","Gene","pmid","year")
+
+aux2 <- DT::datatable(aux2,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS VARIANTES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+
+aux2
+
+
+}
+
+
+})
+
+
+```
+
+```{r DisGeNET-Tables-NS UI}
+
+dataTableOutput("evidence.ns.snp")
+
+dataTableOutput("evidence.ns.gene")
+
+```
+
+
+#### DisGeNET Integration
+
+```{r DisGeNET Integration-NS UI}
+
+fluidPage(
+
+         wellPanel(
+         textOutput("summary.ns.text")),
+         collapsibleTreeOutput("summary.ns")
+    
+)
+
+
+
+
+```
+
+```{r DisGeNET Integration-NS Server}
+
+# Gene Caracterização
+
+output$summary.ns <- renderCollapsibleTree({
+
+  
+summary.total <- read_xlsx(paste0(address.ns(),     "/Table/DisGeNET/Summary_collapsible.xlsx"))
+
+summary.total <- data.frame(summary.total)
+
+summary.total <- collapsibleTree(summary.total,
+                 root = "Sumary",
+                  attribute = "Tumor_Sample_Barcode",
+                  hierarchy = c("snp",
+                                "gene_symbol",
+                                "Variant_Classification",
+                                "VARIANT_CLASS",
+                                "HGVSp",
+                                "Tumor_Sample_Barcode",
+                                "disease_name"),
+                  width = 800,
+                  height = 200,
+                  zoomable = FALSE,
+                  fill = "orange",
+                  fontSize = 10)
+
+summary.total
+
+})
+
+
+output$summary.ns.text <- renderText({
+
+"Variações presentes na porcentagem de amostras definias pelo usuário. Visualizando os genes, o tipo de alteração, as amostras que a possuim e as doenças associadas com a variação."
+
+})
+
+
+```
+
+
+### CF {.tabset}
+
+
+```{r Carregando aos Dados-CF}
+
+address.cf <- reactive({
+  
+  paste0("_site/Resultados/",input$protocol,
+         "/CF",
+         "_percent_",input$npercent,
+         "_tc_",input$tc,
+         "_td_",input$td,
+         "_nd_",input$nd)
+  
+})
+
+address.rda.cf <- reactive({
+  
+  paste0("_site/Resultados/",input$protocol,
+         "/RData/CF/CF_",
+         "percent_",input$npercent,
+         "_tc_",input$tc,
+         "_td_",input$td,
+         "_nd_",input$nd, ".RData")
+  
+})
+
+
+```
+
+
+<div class=text-center>
+
+**Resumo dos Resultados CF**
+
+</div>
+
+
+```{r Summary-Results-MAF-CF Server}
+
+# Tabela com Resumo das alteraçãoes por Amostra
+
+output$results.summary.cf <- DT::renderDataTable({
+  
+aux2 <- read.table(paste0(address.cf(),
+                    "/Table/MAF_files/CF_summary.txt"),
+             header = TRUE)
+
+aux2 <- aux2[,c(1,2)]
+
+
+DT::datatable(aux2,
+              rownames = FALSE,
+              extensions = "FixedColumns",
+                options = list(
+                  columnDefs = list(list(className = 'dt-center',
+                                         targets = "_all")),
+                  paging = FALSE, 
+                  searching = FALSE, 
+                  info = FALSE,
+                  sort = TRUE, 
+                  scrollX = TRUE)
+              )
+  
+})
+
+
+
+```
+
+```{r Summary-Results-MAF-CF UI}
+
+dataTableOutput("results.summary.cf")
+
+
+```
+
+
+#### MAF tools 
+
+```{r MAF-tools-CF UI}
+
+fluidPage(
+
+  sidebarLayout(
+
+        sidebarPanel(
+
+          selectInput("mafview.cf",
+                      label = "Plot",
+             choices = c("MAF_Summary",
+                         "Onco_plot",
+                         "TiTv_plot",
+                         "Somatic_Interaction"),
+                      selected = 1),
+          wellPanel(
+            textOutput("maf.summary.cf.text"),
+            textOutput("onco.plot.cf.text"),
+            textOutput("titv.cf.text"),
+            textOutput("somatic.cf.text")
+            
+          )
+
+        ),
+
+        mainPanel(
+
+          plotOutput("graph.cf"),
+          
+          
+        )
+
+ )
+
+)
+
+
+
+```
+
+```{r MAF-tools-CF Server}
+
+output$graph.cf <- renderImage({
+
+    list(src = paste0(address.cf(),"/Picture/MAF_files/",input$mafview.cf,".png"))
+
+})
+
+
+output$maf.summary.cf.text <- renderText({
+
+  if (input$mafview.cf == "MAF_Summary"){
+
+"Resumo dos arquivos MAF, exibindo o número e tipos de variantes, assim como os genes com mais alterações."
+
+}
+
+})
+
+
+output$onco.plot.cf.text <- renderText({
+
+  if (input$mafview.cf == "Onco_plot"){
+
+"Top de 20 genes (filas) alterados nas amostras (colunas). Destacamos a classificação da variante e a porcentagem de amostras alteradas. **Aclaração**: Varaintes **MultiHits** são os genes que sofreram mutação mais de uma vez na mesma amostra."
+    
+}
+
+})
+
+
+output$titv.cf.text <- renderText({
+
+  if (input$mafview.cf == "TiTv_plot"){
+
+     "Distribuição geral das Transições e Transversões nas amostras."
+
+  }
+
+})
+
+output$somatic.cf.text <- renderText({
+
+  if (input$mafview.cf == "Somatic_Interaction"){
+
+ "Realiza la prueba Exacta de Fisher por pares para detectar eventos mutuamente excluyentes o simultáneos no top dos 20 genes."
+
+  }
+
+})
+
+```
+
+#### MAF Tables
+
+```{r Tables-MAF-CF Server}
+
+# Tabela com Resumo das alteraçãoes por Amostra
+
+output$maf.cf <- DT::renderDataTable({
+  
+aux2 <- read.table(paste0(address.cf(),
+                    "/Table/MAF_files/CF_sampleSummary.txt"),
+             header = TRUE)
+
+names(aux2)[1] <- "Samples"
+aux2$Samples <- gsub("PC_PC_","",aux2$Samples)
+
+aux2 <- aux2[,c(which(names(aux2) == "Samples"),
+              which(names(aux2) == "total"),
+             2:(ncol(aux2)-1))]
+
+names(aux2)[2] <- "Total"
+
+aux2 <- separate(data = aux2,
+                 col = Samples,
+                 into = c("Samples","Class"),
+                 sep = "-")
+
+DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "VARIAÇÕES POR AMOSTRAS",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 3))
+              )
+  
+})
+
+
+# Tabela com o resumo de alterações por Genes
+
+output$maf.cf.class <- DT::renderDataTable({
+  
+aux3 <- read.table(paste0(address.cf(),"/Table/MAF_files/CF_geneSummary.txt"),
+                   header = TRUE)
+
+
+names(aux3)[1] <- "Symbol"
+
+aux3 <- aux3[,c(which(names(aux3) == "Symbol"),
+                which(names(aux3) == "total"),
+                which(names(aux3) == "MutatedSamples"),
+                which(names(aux3) == "AlteredSamples"),
+                2:(ncol(aux3)-3))]
+
+DT::datatable(aux3,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "VARIAÇÕES POR GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 4))
+              )
+  
+
+  
+})
+
+# Tabela com um resumo das informaçãoes dos arquivos MAF 
+
+output$maf.cf.geral <- DT::renderDataTable({
+  
+aux1 <- read_xlsx(paste0(address.cf(),"/Table/MAF_files/MAF_filtered.xlsx"))
+
+aux1 <- aux1[,c(which(names(aux1)=="Tumor_Sample_Barcode"),
+                which(names(aux1)=="Matched_Norm_Sample_Barcode"),
+                which(names(aux1)=="Hugo_Symbol"),
+                which(names(aux1)=="Variant_Classification"),
+                which(names(aux1)=="Variant_Type"),
+                which(names(aux1)=="dbSNP_RS")
+                )]
+
+names(aux1) <- c("Tumor","Germline","Symbol",
+                 "Classification","Type","dbSNP_RS")
+
+aux1$Tumor <- gsub("PC_PC_","",aux1$Tumor)
+aux1$Germline <- gsub("PC_PC_","",aux1$Germline)
+
+DT::datatable(aux1,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "ANOTAÇÕES DAS VARIAÇÕES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+  
+})
+
+
+```
+
+```{r Tables-MAF-CF UI}
+
+dataTableOutput("maf.cf")
+
+dataTableOutput("maf.cf.class")
+
+dataTableOutput('maf.cf.geral')
+
+
+```
+
+
+#### MAF Integration
+
+```{r MAF Integration-CF UI}
+
+fluidPage(
+
+ navbarPage(title="",
+            tabPanel("Gene Characterization",
+                     wellPanel(
+                     textOutput("altered.cf.text")),
+                     collapsibleTreeOutput("altered.cf")),
+            tabPanel("TCGA Integration",
+                     wellPanel(
+                     textOutput("tcga.cf.text")),
+                     plotOutput("tcga.cf")),
+            tabPanel("Allele Frequency",
+                     wellPanel(
+                     textOutput("allele.cf.text")),
+                     plotlyOutput("allele.cf"),
+                     collapsibleTreeOutput("allele.cf.sample")
+                     )
+            
+            )
+
+)
+
+
+
+
+```
+
+```{r MAF Integration-CF Server}
+
+# Gene Caracterização
+
+output$altered.cf <- renderCollapsibleTree({
+
+altered.genes <- read_xlsx(paste0(address.cf(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+plot.altered <- collapsibleTree(
+                altered.genes,
+                hierarchy = c("SYMBOL", "dbSNP_RS", "IMPACT"),
+                width = 800,
+                fill = "darkblue",
+                root= "Genes Characterização",
+                zoomable = FALSE
+                )
+
+plot.altered
+
+})
+
+
+output$altered.cf.text <- renderText({
+
+"Representamos os genes com alteração na porcentagem de amostras definidas pelo usuário. Identificamos as variações nos genes segundo dbSNP_RS do NCBI. Finalmente, identificamos o impacto na proteína: HIGH (H): Supõe-se que a variante tenha alto impacto (disruptivo), provavelmente causando truncamento da proteína, perda de função ou desencadeando decaimento. MODERATE (M): Uma variante não disruptiva que pode alterar a eficácia. LOW (L): presume-se que a variante seja inofensiva ao comportamento da proteína"
+
+})
+
+
+
+# TCGA
+
+output$tcga.cf <- renderImage({
+
+    list(src = paste0(address.cf(),"/Picture/MAF_files/TCGA_compare.png"))
+
+})
+
+output$tcga.cf.text <- renderText({
+
+"Compara a carga de mutação da categoria contra os 33 coortes disponivies no TCGA. O eixo vertical (escala logarítmica) mostra o número de mutações por megabase, enquanto os diferentes tipos de câncer são ordenados no eixo horizontal com base em seus números médios de mutações somáticas, destacando no eixo superior o numero de amostras no estudo."
+  
+})
+
+
+# Allele frequency
+
+output$allele.cf <- renderPlotly({
+
+  altered.genes <- read_xlsx(paste0(address.cf(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+lineal.aux1 <- altered.genes[,c(1,2,3,14:ncol(altered.genes))]
+
+lineal.aux2 <- gather(data = lineal.aux1,
+                      key = "Allele",
+                      value = "Freq",
+                      4:ncol(lineal.aux1))
+names(lineal.aux2)[1] <- "Sample" 
+
+p <- ggplot(lineal.aux2,
+            aes(SYMBOL,
+                Freq, 
+                color = Allele,
+                fill = dbSNP_RS,
+                group = Sample)) + 
+  labs(x="",
+       title = "Allele frequency") + 
+  geom_point() +
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.text.x = element_text(angle = 90, 
+                                   vjust = 0.5, 
+                                   hjust=1)) 
+
+
+p1 <- ggplotly(p,
+         tooltip=c("SYMBOL",
+                   "dbSNP_RS",
+                   "Allele",
+                   "Freq")) %>%
+  layout(
+    legend = list(
+      orientation = 'h', x = 0.3, y = 1
+    )
+)
+
+ p1 
+  
+})
+
+
+
+output$allele.cf.sample <- renderCollapsibleTree({
+
+altered.genes <- read_xlsx(paste0(address.cf(),     "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+altered.genes <- data.frame(altered.genes)
+
+lineal.aux1 <- altered.genes[,c(1,2,3,14:ncol(altered.genes))]
+
+lineal.aux2 <- gather(data = lineal.aux1,
+                      key = "Allele",
+                      value = "Freq",
+                      4:ncol(lineal.aux1))
+names(lineal.aux2)[1] <- "Sample" 
+
+
+lineal.aux3 <- lineal.aux2[-which(is.na(lineal.aux2$Freq)),]
+
+
+allele.sample <- collapsibleTree(
+              lineal.aux3,
+              hierarchy = c("SYMBOL","dbSNP_RS","Sample"),
+              width = 800,
+              fill = "darkblue",
+              root= paste0("Allele Frequency"),
+              zoomable = FALSE
+              )
+
+allele.sample
+
+})
+
+
+output$allele.cf.text <- renderText({
+
+ "Frequência de variante existente em 1000 genomas (AF),e na população africana (AFR_AF), Americana (AMR),  Asiática (ASN), Leste Asiático (EAS), Europeia (EUR), Sul da Ásia (SAS) e Afro-Americana (AA),Européia-Americana (EA) do NHLBI-ESP (combinadas de 1000 genomas). 
+  
+  **No final da pagina** as amostras que apresentam as variantes."
+
+})
+
+
+
+```
+
+
+#### DisGeNET 
+
+```{r DisGeNET-CF UI}
+
+fluidPage(
+
+  sidebarLayout(
+
+        sidebarPanel(
+
+          selectInput("disgenet.cf",
+                      label = "Plot",
+             choices = c("Network",
+                         "Heatmap_Gene",
+                         "Heatmap_Variant"),
+                      selected = 1),
+          wellPanel(
+            
+            textOutput("network.cf.text"),
+            textOutput("gene.cf.text"),
+            textOutput("variant.cf.text")
+            
+          )
+
+        ),
+
+        mainPanel(
+
+          plotOutput("plot.cf.disgenet"),
+          
+          
+        )
+
+ )
+
+)
+
+
+
+```
+
+```{r DisGeNET-CF Server}
+
+output$plot.cf.disgenet <- renderImage({
+
+    list(src = paste0(address.cf(),"/Picture/DisGeNET/",input$disgenet.cf,".png"))
+
+})
+
+output$network.cf.text <- renderText({
+
+  if (input$disgenet.cf == "Network"){
+
+"Red (network) de associação entre as doenças (azul), com variantes gênicas (laranja) e o gene (rosa) alterado na porcentagem definidas pelo usuário. A largura das arestas é proporcional à pontuação da associação e o tamanho do nó proporcional à fração de doenças na classe de doenças. ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+output$gene.cf.text <- renderText({
+
+  if (input$disgenet.cf == "Heatmap_Gene"){
+
+"Lista de doenças associadas aos genes com as variações. A escala de cores é proporcional à pontuação do GDA (associações de doenças genéticas). ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+
+  }
+
+})
+
+
+output$variant.cf.text <- renderText({
+
+  if (input$disgenet.cf == "Heatmap_Variant"){
+
+  "Lista de doenças associadas as variações. A escala de cores é proporcional à porcentagem de dbSNP para cada doença em cada classe. ANOTAÇÃO: A ausência de figura se deve 1) a que as varaintes gênicas não estão associadas até o momento doenças ou 2) a porcentagem definida pelo usuário não se consegue selecionar genes."
+
+  }
+
+})
+
+
+```
+
+
+
+#### DisGeNET Tables
+
+```{r DisGeNET-Tables-CF Server}
+
+# Tabela as evidenças dos SNP na literatura
+
+output$evidence.cf.snp <- DT::renderDataTable({
+  
+
+test <- paste0(address.cf(),
+                  "/Table/DisGeNET/VariantEvidence.xlsx")
+  
+
+if (file.exists(test)) {
+aux2 <- read_xlsx(paste0(address.cf(),
+                  "/Table/DisGeNET/VariantEvidence.xlsx"))
+
+aux2 <- DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS VARIANTES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 2))
+              )
+aux2  
+
+}else{
+
+aux2 <- matrix(c("NULL","NULL","NULL", "NULL"), nrow=1, ncol=4)
+aux2 <- data.frame (aux2) 
+names(aux2) <- c("dbSNP","Gene","pmid","year")
+
+aux2 <- DT::datatable(aux2,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+
+aux2
+
+
+}
+
+
+})
+
+# Tabela as evidenças por os Genes
+# Se mque necessariamente a doença esteja vinculada
+# a SNP
+
+output$evidence.cf.gene <- DT::renderDataTable({
+
+test <- paste0(address.cf(),
+                  "/Table/DisGeNET/GeneEvidence.xlsx")
+  
+
+if (file.exists(test)) {
+aux2 <- read_xlsx(paste0(address.cf(),
+                  "/Table/DisGeNET/GeneEvidence.xlsx"))
+
+aux2 <- DT::datatable(aux2,
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS A GENES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = TRUE, 
+                  searching = TRUE, 
+                  info = TRUE,
+                  sort = TRUE, 
+                  scrollX = TRUE, 
+                  fixedColumns = list(leftColumns = 2))
+              )
+aux2  
+
+}else{
+
+aux2 <- matrix(c("NULL","NULL","NULL", "NULL"), nrow=1, ncol=4)
+aux2 <- data.frame (aux2) 
+names(aux2) <- c("dbSNP","Gene","pmid","year")
+
+aux2 <- DT::datatable(aux2,
+              caption = htmltools::tags$caption(
+                "EVIDENCIAS ASSOCIADAS AS VARIANTES",
+                style = 'text-align: left; 
+                         color:black;
+                         font-weight: bold;'))
+
+aux2
+
+
+}
+
+
+})
+
+
+```
+
+```{r DisGeNET-Tables-CF UI}
+
+dataTableOutput("evidence.cf.snp")
+
+dataTableOutput("evidence.cf.gene")
+
+```
+
+
+#### DisGeNET Integration
+
+```{r DisGeNET Integration-CF UI}
+
+fluidPage(
+
+         wellPanel(
+         textOutput("summary.cf.text")),
+         collapsibleTreeOutput("summary.cf")
+    
+)
+
+
+
+
+```
+
+```{r DisGeNET Integration-CF Server}
+
+# Gene Caracterização
+
+output$summary.cf <- renderCollapsibleTree({
+
+  
+summary.total <- read_xlsx(paste0(address.cf(),     "/Table/DisGeNET/Summary_collapsible.xlsx"))
+
+summary.total <- data.frame(summary.total)
+
+summary.total <- collapsibleTree(summary.total,
+                 root = "Sumary",
+                  attribute = "Tumor_Sample_Barcode",
+                  hierarchy = c("snp",
+                                "gene_symbol",
+                                "Variant_Classification",
+                                "VARIANT_CLASS",
+                                "HGVSp",
+                                "Tumor_Sample_Barcode",
+                                "disease_name"),
+                  width = 800,
+                  height = 200,
+                  zoomable = FALSE,
+                  fill = "orange",
+                  fontSize = 10)
+
+summary.total
+
+})
+
+
+output$summary.cf.text <- renderText({
+
+"Variações presentes na porcentagem de amostras definias pelo usuário. Visualizando os genes, o tipo de alteração, as amostras que a possuim e as doenças associadas com a variação."
+
+})
+
+
+```
+
+
+
+### FLAGS (**F**requent**L**y mut**A**ted **G**ene**S**)  {.tabset}
+
+
+<div class=text-justify>
+
+&nbsp;&nbsp;&nbsp;
+**FLAGS** é uma lista de genes que exibem com mais frequência variantes raras (<1%) não sinônimas/splicing-site em populações em geral [(Shyr _et al.,_,2014/2017)](https://www.ncbi.nlm.nih.gov/pmc/articles/PMC4267152/). Procurarmos os genes que entram nessa lista.
+
+</div>
+
+```{r FLAGS-UI}
+
+
+fixedRow(
+  column(12,
+    plotOutput("flags.geral"),
+    fixedRow(
+      column(3,
+        dataTableOutput("flags.gh")
+      ),
+      column(3,
+        dataTableOutput("flags.acth")
+        ),
+      column(3,
+        dataTableOutput("flags.ns")
+        ),
+      column(3,
+        dataTableOutput("flags.cf")
+        )
+    )
+  )
+)
+
+
+```
+
+
+```{r  FLAGS-Server}
+
+# plot de densidade 
+
+output$flags.geral <- renderPlot({
+  
+  
+flags <- read.table("_site/Resultados/FLAGS/12920_2017_309_MOESM3_ESM.txt")
+names(flags) <- c("Gene","Freq.Mutation")
+
+s <- summary(log10(flags$Freq.Mutation))
+
+flags.geral <- ggplot(flags, aes(x = log10(Freq.Mutation))) + 
+                    geom_histogram(aes(y = ..density..),
+                                   colour = "white", fill = "gray") +
+                    geom_density(color = "black") +
+                    labs(title="FLAGS distribution") +
+                    geom_vline(xintercept = s[1], 
+                               linetype = "dashed", 
+                               color = "black") +
+                    geom_vline(xintercept = s[2], 
+                               linetype = "dashed", 
+                               color = "blue") +
+                    geom_vline(xintercept = s[3], 
+                               linetype = "dashed", 
+                               color = "red") +
+                    geom_vline(xintercept = s[5], 
+                               linetype = "dashed", 
+                               color = "blue") +
+                    geom_vline(xintercept = s[6], 
+                               linetype = "dashed", 
+                               color = "black") +
+                    theme_classic()
+
+flags.geral 
+  
+  
+})
+
+
+# plot Flags.GH
+
+output$flags.gh <- DT::renderDataTable({
+
+flags <- read.table("_site/Resultados/FLAGS/12920_2017_309_MOESM3_ESM.txt")
+names(flags) <- c("Gene","Freq.Mutation")  
+
+genes.flags <- paste0(address.gh(),"/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx")
+ 
+
+if (file.exists(genes.flags)) {
+
+  aux1.GH <- read_xlsx(paste0(address.gh(),
+                              "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+} else{
+
+  aux1.GH <- matrix(c("NULL","NULL","GH"), nrow=1, ncol=3)
+  names(aux1.GH) <- c("Gene","log10(FreqM)","Category")
+
+}
+
+  
+if (nrow(aux1.GH) >= 1){
+
+  aux1.GH <- unique(aux1.GH$SYMBOL)
+  aux1.GH <- flags[flags$Gene %in% aux1.GH,]
+  aux1.GH$Category <- "GH"
+  aux1.GH$Freq.Mutation <- round(log10(aux1.GH$Freq.Mutation),digits = 1)
+  aux1.GH
+  names(aux1.GH) <- c("Gene","log10(FreqM)","Category")
+
+}else{
+
+  aux1.GH <- matrix(c("NULL","NULL","GH"), nrow=1, ncol=3)
+  aux1.GH <- data.frame(aux1.GH)
+  names(aux1.GH) <- c("Gene","log10(FreqM)","Category")
+
+}
+
+flags.gh <- DT::datatable(aux1.GH[,c(1,2)],
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "FLAGS_GH",
+                style = 'text-align: left;
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = FALSE,
+                  searching = FALSE,
+                  info = FALSE,
+                  sort = TRUE)
+              )
+flags.gh
+
+})
+
+
+# plot Flags.ACTH
+
+output$flags.acth <- DT::renderDataTable({
+
+flags <- read.table("_site/Resultados/FLAGS/12920_2017_309_MOESM3_ESM.txt")
+names(flags) <- c("Gene","Freq.Mutation")  
+
+genes.flags <- paste0(address.acth(),"/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx")
+ 
+
+if (file.exists(genes.flags)) {
+
+  aux1.ACTH <- read_xlsx(paste0(address.acth(),
+                              "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+} else{
+
+  aux1.ACTH <- matrix(c("NULL","NULL","ACTH"), nrow=1, ncol=3)
+  names(aux1.ACTH) <- c("Gene","log10(FreqM)","Category")
+
+}
+
+  
+if (nrow(aux1.ACTH) >= 1){
+
+  aux1.ACTH <- unique(aux1.ACTH$SYMBOL)
+  aux1.ACTH <- flags[flags$Gene %in% aux1.ACTH,]
+  aux1.ACTH$Category <- "ACTH"
+  aux1.ACTH$Freq.Mutation <- round(log10(aux1.ACTH$Freq.Mutation),digits = 1)
+  aux1.ACTH
+  names(aux1.ACTH) <- c("Gene","log10(FreqM)","Category")
+
+}else{
+
+  aux1.ACTH <- matrix(c("NULL","NULL","ACTH"), nrow=1, ncol=3)
+  aux1.ACTH <- data.frame(aux1.ACTH)
+  names(aux1.ACTH) <- c("Gene","log10(FreqM)","Category")
+
+}
+
+flags.acth <- DT::datatable(aux1.ACTH[,c(1,2)],
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "FLAGS_ACTH",
+                style = 'text-align: left;
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = FALSE,
+                  searching = FALSE,
+                  info = FALSE,
+                  sort = TRUE)
+              )
+flags.acth
+
+})
+
+# plot Flags.NS
+
+output$flags.ns <- DT::renderDataTable({
+
+flags <- read.table("_site/Resultados/FLAGS/12920_2017_309_MOESM3_ESM.txt")
+names(flags) <- c("Gene","Freq.Mutation")  
+
+genes.flags <- paste0(address.ns(),"/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx")
+ 
+
+if (file.exists(genes.flags)) {
+
+  aux1.NS <- read_xlsx(paste0(address.ns(),
+                              "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+} else{
+
+  aux1.NS <- matrix(c("NULL","NULL","NS"), nrow=1, ncol=3)
+  names(aux1.NS) <-  c("Gene","log10(FreqM)","Category")
+
+}
+
+  
+if (nrow(aux1.NS) >= 1){
+
+  aux1.NS <- unique(aux1.NS$SYMBOL)
+  aux1.NS <- flags[flags$Gene %in% aux1.NS,]
+  aux1.NS$Category <- "NS"
+  aux1.NS$Freq.Mutation <- round(log10(aux1.NS$Freq.Mutation),digits = 1)
+  aux1.NS
+  names(aux1.NS) <-  c("Gene","log10(FreqM)","Category")
+
+
+}else{
+
+  aux1.NS <- matrix(c("NULL","NULL","NS"), nrow=1, ncol=3)
+  aux1.NS <- data.frame(aux1.NS)
+  names(aux1.NS) <-  c("Gene","log10(FreqM)","Category")
+
+}
+
+flags.ns <- DT::datatable(aux1.NS[,c(1,2)],
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "FLAGS_NS",
+                style = 'text-align: left;
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = FALSE,
+                  searching = FALSE,
+                  info = FALSE,
+                  sort = TRUE)
+              )
+flags.ns
+
+})
+
+# plot Flags.CF
+
+output$flags.cf <- DT::renderDataTable({
+
+flags <- read.table("_site/Resultados/FLAGS/12920_2017_309_MOESM3_ESM.txt")
+names(flags) <- c("Gene","Freq.Mutation")  
+
+genes.flags <- paste0(address.cf(),"/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx")
+ 
+
+if (file.exists(genes.flags)) {
+
+  aux1.CF <- read_xlsx(paste0(address.cf(),
+                              "/Table/MAF_files/AlteredGenes_TenPercent_Samples.xlsx"))
+
+} else{
+
+  aux1.CF <- matrix(c("NULL","NULL","CF"), nrow=1, ncol=3)
+  names(aux1.CF) <-  c("Gene","log10(FreqM)","Category")
+
+}
+
+  
+if (nrow(aux1.CF) >= 1){
+
+  aux1.CF <- unique(aux1.CF$SYMBOL)
+  aux1.CF <- flags[flags$Gene %in% aux1.CF,]
+  aux1.CF$Category <- "CF"
+  aux1.CF$Freq.Mutation <- round(log10(aux1.CF$Freq.Mutation),digits = 1)
+  aux1.CF
+  names(aux1.CF) <-  c("Gene","log10(FreqM)","Category")
+
+}else{
+
+  aux1.CF <- matrix(c("NULL","NULL","CF"), nrow=1, ncol=3)
+  aux1.CF <- data.frame(aux1.CF)
+  names(aux1.CF) <- c("Gene","log10(FreqM)","Category")
+
+}
+
+flags.cf <- DT::datatable(aux1.CF[,c(1,2)],
+              rownames = FALSE,
+              caption = htmltools::tags$caption(
+                "FLAGS_CF",
+                style = 'text-align: left;
+                         color:black;
+                         font-weight: bold;'),
+              extensions = "FixedColumns",
+                options = list(
+                  paging = FALSE,
+                  searching = FALSE,
+                  info = FALSE,
+                  sort = TRUE)
+              )
+flags.cf
+
+})
+
+
+
+```
+
+
+
+
+
+
